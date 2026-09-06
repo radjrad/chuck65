@@ -3,13 +3,15 @@
 <head>
 <meta charset="utf-8">
 <title>Dad at 65: The Expedition</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1626">
 <style>
 /* ==================================================================
    DAD AT 65: THE EXPEDITION
    Single-file, offline, TV-friendly. All text lives in the CONTENT
    section of the script below. Colors per chapter live in the
-   body[data-theme=...] blocks right here.
+   body[data-theme=...] blocks right here. The PHONE block at the end
+   of this stylesheet restacks every screen for a portrait phone.
    ================================================================== */
 
 :root{
@@ -41,7 +43,8 @@ body{
 }
 body.idle, body.idle *{cursor:none !important}
 [hidden]{display:none !important}
-button{font-family:inherit}
+button{font-family:inherit; touch-action:manipulation; -webkit-tap-highlight-color:transparent}
+body{-webkit-text-size-adjust:100%}
 b,strong{font-weight:800}
 
 #app{position:fixed;inset:0;display:flex;flex-direction:column}
@@ -69,7 +72,7 @@ body.closing #sound{display:none}
   font-size:.7rem; font-weight:700; padding:.25rem .6rem; border-radius:.4rem;
   background:rgba(0,0,0,.45); color:#fff; border:2px solid rgba(255,255,255,.5); cursor:pointer;
 }
-.tiny:hover{background:rgba(255,255,255,.2)}
+@media (hover:hover){ .tiny:hover{background:rgba(255,255,255,.2)} }
 
 /* ---------- Stage + screens ---------- */
 #stage{position:relative; flex:1 1 auto; min-height:0}
@@ -126,7 +129,9 @@ p{margin:0}
   transition:transform .12s, filter .12s, box-shadow .12s, opacity .3s; text-align:center;
 }
 .btn.big{min-height:3.6rem; font-size:1.35rem; padding:.6rem 2.4rem}
-.btn:hover, .btn.hi{filter:brightness(1.12); transform:translateY(-.1rem); outline:.26rem solid #fff; outline-offset:.14rem}
+.btn.hi{filter:brightness(1.12); transform:translateY(-.1rem); outline:.26rem solid #fff; outline-offset:.14rem}
+@media (hover:hover){ .btn:hover{filter:brightness(1.12); transform:translateY(-.1rem); outline:.26rem solid #fff; outline-offset:.14rem} }
+@media (hover:none){ .btn.hi{filter:none; transform:none; outline:none} .can.hi .face{outline:none} }
 .btn:active{transform:translateY(.12rem); box-shadow:0 .1rem 0 rgba(0,0,0,.4)}
 .btn:disabled{opacity:.45; cursor:default; filter:none; transform:none; outline:none}
 .btn.continue{background:#fff; color:#111}
@@ -165,8 +170,8 @@ p{margin:0}
 
 /* Beer-can matching game (Maryland) */
 .canswrap{display:flex; align-items:center; gap:2rem; width:100%; height:100%; justify-content:center}
-.cans{display:grid; grid-template-columns:repeat(4, 7.2rem); grid-template-rows:repeat(4, 12.5vh); gap:.55rem 1rem; padding:.6rem 1.2rem; border-radius:.6rem;
-  background:repeating-linear-gradient(to bottom, transparent 0, transparent calc(12.5vh + .55rem - .5rem), #5a3d1e calc(12.5vh + .55rem - .5rem), #3b2712 calc(12.5vh + .55rem)); box-shadow:0 .8rem 2rem rgba(0,0,0,.5)}
+.cans{--canh:12.5vh; display:grid; grid-template-columns:repeat(4, 7.2rem); grid-template-rows:repeat(4, var(--canh)); gap:.55rem 1rem; padding:.6rem 1.2rem; border-radius:.6rem;
+  background:repeating-linear-gradient(to bottom, transparent 0, transparent calc(var(--canh) + .55rem - .5rem), #5a3d1e calc(var(--canh) + .55rem - .5rem), #3b2712 calc(var(--canh) + .55rem)); box-shadow:0 .8rem 2rem rgba(0,0,0,.5)}
 .can{position:relative; border:0; background:transparent; padding:0; cursor:pointer; perspective:600px}
 .can .inner{position:absolute; inset:0; transform-style:preserve-3d; transition:transform .35s}
 .can.up .inner{transform:rotateY(180deg)}
@@ -184,7 +189,7 @@ p{margin:0}
 
 /* Big House */
 .section{fill:#5b6675; stroke:#0b1a2e; stroke-width:3; transition:fill .4s; cursor:pointer}
-.section:hover{fill:#7c8899}
+@media (hover:hover){ .section:hover{fill:#7c8899} }
 .section.full{fill:#00274C; cursor:default}
 .fan{opacity:0; transform-box:fill-box; transform-origin:center; pointer-events:none}
 .fan.show{opacity:1; animation:pop .5s ease-out}
@@ -382,6 +387,180 @@ p{margin:0}
 .summit-sky .stars{transition:opacity 1.5s ease}
 .summit-sky.day .stars{opacity:0}
 .summit-sky.instant .dawn, .summit-sky.instant .stars{transition:none}
+
+/* ==================================================================
+   PHONE — portrait phones and narrow screens. The TV layout above
+   assumes a wide 16:9 stage; here every screen becomes one scrolling
+   column, the backdrop stays fixed behind it, buttons are thumb-sized
+   and the primary button sticks to the bottom edge.
+   ================================================================== */
+@media (max-width: 760px), (orientation: portrait) and (max-width: 1024px){
+  :root{ --fs: clamp(13px, 4.2vw, 17px); --hud-h: auto; }
+  body{ font-weight:600 }
+
+  /* HUD wraps onto two lines: chapter name + sound, trail map below */
+  #hud{ height:auto; flex:0 0 auto; flex-wrap:wrap; gap:.25rem .6rem; padding:.45rem 5.4rem .35rem .8rem; background:linear-gradient(to bottom, rgba(0,0,0,.6), rgba(0,0,0,.25)); }
+  #hud-chapter{ font-size:.8rem; white-space:normal; line-height:1.15 }
+  #trail{ width:100%; height:auto; margin:0; flex:1 0 100% }
+  #sound{ top:.4rem; right:.6rem }
+  .tiny{ font-size:.7rem; padding:.3rem .55rem }
+
+  /* Screens scroll; the scene is pinned to the viewport behind them */
+  .screen{ overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; overscroll-behavior:contain }
+  .scene{ position:fixed; inset:0 }
+  .content{ flex:1 0 auto; min-height:0; justify-content:flex-start; padding:.9rem 1rem .4rem; gap:.8rem; width:100%; max-width:100% }
+  .screen[data-screen=title] .content{ margin-left:0; padding-right:1rem; justify-content:flex-end; min-height:calc(100dvh - 8rem) }
+  .screen[data-screen=title] .lead{ max-width:100% }
+  .actions{ position:sticky; bottom:0; flex-wrap:wrap; gap:.6rem; padding:.9rem 1rem calc(.9rem + env(safe-area-inset-bottom)); background:linear-gradient(to top, rgba(0,0,0,.72) 55%, rgba(0,0,0,0)); }
+  .actions:empty{ display:none }
+  .hints{ display:none }
+
+  /* Type */
+  .do{ position:static; transform:none; white-space:normal; text-align:center; font-size:.85rem; padding:.3rem .9rem; margin:0 auto; max-width:100%; line-height:1.25 }
+  .kicker{ font-size:.75rem; text-align:center }
+  h1.giant{ font-size:2.9rem; text-align:center }
+  .sub{ font-size:1.25rem; letter-spacing:.22em; text-align:center }
+  h2{ font-size:1.45rem; text-align:center }
+  h2.q{ max-width:100% }
+  .lead{ font-size:1.05rem; max-width:100%; text-align:center }
+  .card{ padding:.8rem 1rem; border-radius:.8rem; width:100% }
+  .card p{ font-size:1rem }
+  .card.narration{ max-width:100% }
+  .card.narration h2{ text-align:left }
+  .card.narration .kicker{ text-align:left }
+  .row{ flex-direction:column; gap:1rem }
+
+  /* Buttons: at least a thumb tall, full width when stacked */
+  .btn{ min-height:3.1rem; font-size:1.05rem; padding:.55rem 1.1rem; border-radius:.75rem }
+  .btn.big{ min-height:3.4rem; font-size:1.15rem; padding:.6rem 1.4rem }
+  .actions > .btn{ flex:1 1 auto }
+  .actions .btn.primary, .actions .btn.continue{ flex:1 1 100% }
+  .opts{ width:100%; gap:.6rem }
+  .opts.n4, .opts.n5{ grid-template-columns:1fr; width:100% }
+  .opt{ min-height:3rem; font-size:1rem }
+  .opt .num{ width:1.7rem; height:1.7rem; font-size:.9rem }
+  .reaction{ max-width:100% }
+  .reaction p{ font-size:1.1rem }
+
+  /* Photos */
+  .polaroid{ transform:rotate(var(--rot, -3deg)) }
+  .polaroid img{ max-height:40vh; max-width:min(78vw, 22rem) }
+  .polaroid figcaption{ font-size:.9rem }
+  .polaroid.sm img{ max-height:24vh; max-width:34vw }
+  .photos{ flex-wrap:wrap; justify-content:center; gap:.9rem }
+
+  /* Mini-games: the playfield sizes itself to its content */
+  .content.mini{ gap:.6rem }
+  .note{ font-size:1rem; min-height:0 }
+  .note.big{ font-size:1.35rem }
+  .playfield{ width:100%; height:auto; min-height:0; flex-direction:column }
+  .playfield > svg{ width:100%; height:auto }
+
+  /* Beer cans: 4 across the full width */
+  .canswrap{ flex-direction:column; gap:.8rem; height:auto }
+  .cans{ --canh:17vw; grid-template-columns:repeat(4, 1fr); width:100%; gap:.5rem .6rem; padding:.5rem .7rem }
+  .can .back{ font-size:1.5rem }
+  .can .front{ font-size:.72rem; padding:.2rem }
+  .cansinfo{ flex-direction:row; flex-wrap:wrap; justify-content:center; gap:.3rem .9rem; min-width:0 }
+  .cansinfo .kicker{ display:none }
+  .cansinfo .timer{ font-size:1.8rem }
+  .cansinfo .best{ flex:1 0 100%; text-align:center }
+
+  /* Big House */
+  .roar-text{ font-size:130px }
+
+  /* Reactor */
+  .reactor{ grid-template-columns:1fr; gap:.9rem; height:auto }
+  .seq{ gap:.6rem }
+  .gaugebox svg{ width:min(16rem, 70vw) }
+  .readout{ font-size:1.2rem }
+  .banner{ font-size:1.9rem; padding:.3rem 1rem; white-space:nowrap }
+
+  /* Org chart: the layout switches to two columns (positions come from the script) */
+  .org{ height:min(70vh, 34rem); width:100% }
+  .obox{ min-width:6.5rem; max-width:44vw; padding:.4rem .5rem; border-radius:.6rem; border-width:.12rem }
+  .obox .t{ font-size:.92rem }
+  .obox .s{ font-size:.72rem }
+  .obox.top{ min-width:9rem; max-width:70vw }
+  .obox.top .t{ font-size:1.1rem }
+  .org line{ stroke-width:3 }
+
+  /* Cactus fight */
+  .arena{ height:min(46vh, 22rem); width:100% }
+  .fighter{ width:6rem; height:8rem; bottom:20% }
+  .fighter.punch .arm-r{ transform:translate(1rem, .2rem) rotate(-20deg) }
+  .hpbar{ width:36%; height:1rem }
+  .hpname{ font-size:.75rem; top:1.75rem }
+  .bubble{ font-size:1.4rem }
+  .fightmsg{ font-size:1.7rem; white-space:normal; width:92%; text-align:center; line-height:1.1 }
+  .pad{ gap:.5rem; width:100%; justify-content:center }
+  .pad .btn{ min-width:0; flex:1 1 0; padding:.55rem .5rem }
+  .pad .btn.big{ flex:1.4 1 0 }
+
+  /* Climb */
+  .climb{ height:auto; aspect-ratio:1200/700 }
+  .reveal img{ height:auto; max-height:50vh; width:auto; max-width:82vw }
+  .reveal .cap{ font-size:.95rem; text-align:center; padding:0 1rem }
+
+  /* Paper football */
+  .kickwrap{ flex-direction:column; gap:.8rem; height:auto }
+  .kick{ width:100%; height:auto; flex:0 0 auto }
+  .kick svg{ height:auto }
+  .kickside{ flex-direction:row; flex-wrap:wrap; justify-content:center; gap:.4rem .9rem }
+  .kickside .polaroid{ flex:1 0 100%; align-self:center; margin:0 auto; width:max-content; max-width:100% }
+  .attempt{ font-size:1.2rem }
+
+  /* Pin the hat */
+  .pinwrap{ flex-direction:column; gap:.9rem; height:auto }
+  .pin{ height:auto; width:min(100%, calc(52vh * 1421 / 1920)) }
+  .pin img{ height:auto; aspect-ratio:1421/1920; border-width:.3rem }
+  .pin .blind{ font-size:1.1rem }
+  .pinside{ max-width:100% }
+  .pinside .score{ font-size:1.8rem }
+
+  /* Badges */
+  .badge svg{ width:7rem; height:7rem }
+  .earned{ flex-direction:column; gap:1rem }
+  .earned-left, .earned.multi .earned-left{ max-width:100% }
+  .earned-left .bname{ font-size:1.5rem }
+  .earned-left .rtext{ font-size:1.05rem }
+
+  /* Summit flag */
+  .flagwrap{ width:100%; height:auto; min-height:0; align-items:flex-start; padding-left:6% }
+  .pole{ left:6%; top:0; height:calc(100% + 1.2rem); width:.4rem }
+  .cloth{ position:relative; left:0; top:.4rem; width:100%; height:auto; padding:.6rem 2rem .6rem .8rem; gap:.4rem .3rem; clip-path:polygon(0 0, 100% 0, 94% 50%, 100% 100%, 0 100%) }
+  .cloth .slot{ width:23% }
+  .cloth .ghost{ top:1.8rem; width:3.2rem; height:3.2rem }
+  .cloth .badge svg{ width:3.4rem; height:3.4rem }
+  .cloth .badge .bname{ font-size:.55rem }
+
+  /* Trail register */
+  .entries{ grid-template-columns:1fr; gap:.8rem; width:100% }
+  .entry .msg{ font-size:.98rem }
+
+  /* Log + toast */
+  .logwrap{ flex-direction:column; gap:1rem }
+  .log{ max-width:100% }
+  .log p{ font-size:1.05rem }
+  .log p.final{ font-size:1.3rem }
+  .filmstrip{ max-width:100%; gap:.5rem }
+  .filmstrip img{ height:auto; width:calc(50% - .5rem); aspect-ratio:1; object-fit:cover; border-width:.2rem }
+  .toast{ position:fixed; z-index:15 }
+  .toast .glasses{ height:28vh; gap:.2rem }
+  .toast .glass{ width:3.2rem }
+  .toast .cheers{ font-size:2rem; text-align:center; padding:0 1rem }
+
+  /* Closing */
+  .closing{ position:relative; inset:auto; min-height:100%; padding:1.2rem 1rem 3rem; gap:.8rem }
+  .closing img{ height:auto; max-height:58vh; width:auto; max-width:84vw }
+  .closing h1{ font-size:2rem; text-align:center }
+  .closing .sub2{ font-size:1.15rem; text-align:center }
+  .restart-link{ position:fixed; font-size:.75rem; opacity:.7; padding:.5rem }
+}
+/* Short landscape phones: the TV layout at a readable minimum size */
+@media (max-height: 480px) and (orientation: landscape){
+  :root{ --fs: max(11px, min(1.5vw, 2.7vh)) }
+}
 </style>
 </head>
 <body data-theme="title">
@@ -420,6 +599,10 @@ p{margin:0}
 /* ==================================================================
    1. CONTENT — every word Chuck sees lives here. Edit freely.
    ================================================================== */
+
+/* Phones: coarse pointer means wording says "tap", and the org chart stacks two-wide */
+const TOUCH = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+const phoneLayout = () => window.matchMedia('(max-width: 760px), (orientation: portrait) and (max-width: 1024px)').matches;
 
 const TOTAL = 8;
 const CHAPTERS = {
@@ -644,13 +827,14 @@ const MINI_TEXT = {
     labels:['Add: Family', 'Add: Grill', 'Add: Hiking Crew', 'Add: Damn Fools', 'Add the dotted line', 'Add the other dotted line', 'Continue →'],
     notes:['Chief Executive of Saturday.', 'Family: direct reports. Frequent unscheduled meetings.', 'Grill: a department of one. No delegation. Ever.', 'Hiking Crew: meets at dawn. Attendance mandatory.', 'Damn Fools: meets at the bar. Attendance enthusiastic.', 'Dotted line, as required by every real org chart.', 'One more dotted line. Everybody knows who the real boss is.'],
     boxes:[
-      { cls:'top', t:'Chuck', s:'Chief Executive of Saturday', x:50, y:14 },
-      { t:'Family', s:'direct reports', x:14, y:72 },
-      { t:'Grill', s:'department of one', x:38, y:72 },
-      { t:'Hiking Crew', s:'meets at dawn', x:62, y:72 },
-      { t:'Damn Fools', s:'meets at the bar', x:86, y:72 },
-      { cls:'dotted', t:'Eclipse Hospitality', s:'(see Anand)', x:82, y:16, line:[50,14,82,16] },
-      { cls:'dotted', t:'The real boss', s:'(also see Anand)', x:82, y:40, line:[82,22,82,34] },
+      /* x/y place each box on the TV layout; px/py (and pline) are the portrait-phone positions */
+      { cls:'top', t:'Chuck', s:'Chief Executive of Saturday', x:50, y:14, px:50, py:9 },
+      { t:'Family', s:'direct reports', x:14, y:72, px:26, py:36, pline:[50,9,26,36] },
+      { t:'Grill', s:'department of one', x:38, y:72, px:74, py:36, pline:[50,9,74,36] },
+      { t:'Hiking Crew', s:'meets at dawn', x:62, y:72, px:26, py:58, pline:[50,9,26,58] },
+      { t:'Damn Fools', s:'meets at the bar', x:86, y:72, px:74, py:58, pline:[50,9,74,58] },
+      { cls:'dotted', t:'Eclipse Hospitality', s:'(see Anand)', x:82, y:16, line:[50,14,82,16], px:26, py:84, pline:[50,9,26,84] },
+      { cls:'dotted', t:'The real boss', s:'(also see Anand)', x:82, y:40, line:[82,22,82,34], px:74, py:84, pline:[26,84,74,84] },
     ],
     done:'Chart complete. HR has no notes.',
   },
@@ -695,6 +879,18 @@ const MINI_TEXT = {
   log: { do:'Read the final entry, then raise a glass.' },
   choice: { again:'Pick another answer', doAfter:'Press Continue, or try another answer.' },
 };
+if (TOUCH) {                                        /* phones and tablets: no mouse, no arrow keys, no space bar */
+  MINI_TEXT.cans.do = 'Tap the cans to find all 8 matching pairs, fast.';
+  MINI_TEXT.cans.intro = 'The shelf is full. Turn over two cans at a time. The clock starts on your first tap.';
+  MINI_TEXT.bighouse.do = 'Tap each section of the stadium to fill it.';
+  MINI_TEXT.simon.do = 'Tap the five steps in the correct order. No hints.';
+  MINI_TEXT.fight.do = 'Move with the arrows, tap PUNCH. Beat the barrel cactus.';
+  MINI_TEXT.fight.keys = '◀ ▶ move · PUNCH punches';
+  MINI_TEXT.kick.do = 'Drag the paper football back, let go, and split the uprights.';
+  MINI_TEXT.kick.intro = 'Fold it tight. Three tries. Drag the football back and let go, or tap Flick it.';
+  MINI_TEXT.pinhat.do = 'Pin the rice paddy hat on Chuck. Tap where his head is.';
+  MINI_TEXT.pinhat.intro = 'Blindfold on. Tap the dark photo where you think the top of his head is.';
+}
 
 /* ==================================================================
    2. BADGES — one SVG emblem per chapter (shapes and colors only)
@@ -1124,8 +1320,10 @@ const MINI = {
   orgchart: {
     build() {
       const T = MINI_TEXT.orgchart;
-      const boxes = T.boxes.map((b, i) => `<div class="obox ${b.cls||''}" data-i="${i}" style="left:${b.x}%;top:${b.y}%"><div class="t">${b.t}</div><div class="s">${b.s}</div></div>`).join('');
-      const lines = T.boxes.slice(1).map((b, i) => { const l = b.line || [50, 22, b.x, 62]; return `<line data-i="${i+1}" class="${b.cls==='dotted'?'dotted':''}" x1="${l[0]}%" y1="${l[1]}%" x2="${l[2]}%" y2="${l[3]}%"/>`; }).join('');
+      const phone = phoneLayout();
+      const pos = (b) => phone && b.px !== undefined ? { x:b.px, y:b.py } : { x:b.x, y:b.y };
+      const boxes = T.boxes.map((b, i) => `<div class="obox ${b.cls||''}" data-i="${i}" style="left:${pos(b).x}%;top:${pos(b).y}%"><div class="t">${b.t}</div><div class="s">${b.s}</div></div>`).join('');
+      const lines = T.boxes.slice(1).map((b, i) => { const l = (phone && b.pline) || b.line || [50, 22, b.x, 62]; return `<line data-i="${i+1}" class="${b.cls==='dotted'?'dotted':''}" x1="${l[0]}%" y1="${l[1]}%" x2="${l[2]}%" y2="${l[3]}%"/>`; }).join('');
       return `<div class="org"><svg>${lines}</svg>${boxes}</div>`;
     },
     init(el, local) { local.n = 0; },
@@ -1547,6 +1745,9 @@ const INIT = {
   closing(s, el) { el.querySelector('.summit-sky').classList.add('day', 'instant'); Confetti.burst(260); Confetti.ambient(true); },
 };
 
+/* On a phone the screen scrolls, so bring a freshly revealed block into view (a no-op on the TV layout) */
+function showOnPhone(node) { if (node && phoneLayout() && node.scrollIntoView) node.scrollIntoView({ behavior:'smooth', block:'nearest' }); }
+
 /* Per-type click actions (data-action values other than next/restart) */
 const ACT = {
   choice(action, btn, s, el) {
@@ -1564,7 +1765,7 @@ const ACT = {
     el.querySelector('.reaction').hidden = false;
     el.querySelector('.do').textContent = MINI_TEXT.choice.doAfter;
     el.querySelectorAll('.actions .btn').forEach(b => b.hidden = false);
-    Sound.chime(); setHi(0);
+    Sound.chime(); setHi(0); showOnPhone(el.querySelector('.reaction'));
   },
   trivia(action, btn, s, el) {
     if (action !== 'pick') return;
@@ -1574,11 +1775,11 @@ const ACT = {
       el.querySelector('.do').textContent = 'Badge earned. Press Continue.';
       const e = el.querySelector('.earned'); e.hidden = false; e.querySelector('.badge').classList.add('stamp');
       el.querySelector('.primary').hidden = false;
-      earn(s.chapter); Sound.fanfare(); Confetti.burst(120); setHi(0);
+      earn(s.chapter); Sound.fanfare(); Confetti.burst(120); setHi(0); showOnPhone(e);
     } else {
       btn.classList.add('wrong'); btn.disabled = true;
       el.querySelector('.wrongbox').hidden = false;
-      Sound.wrong(); setHi(0);
+      Sound.wrong(); setHi(0); showOnPhone(el.querySelector('.wrongbox'));
     }
   },
   mini(action, btn, s, el, local) {
