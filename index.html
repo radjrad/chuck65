@@ -1,0 +1,1356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Chuck at 65: The Expedition</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+/* ==================================================================
+   CHUCK AT 65: THE EXPEDITION
+   Single-file, offline, TV-friendly. All text lives in the CONTENT
+   section of the script below. Colors per chapter live in the
+   body[data-theme=...] blocks right here.
+   ================================================================== */
+
+:root{
+  /* 1rem scales with the viewport: 28.8px at 1920x1080 (1.5vw), so every screen keeps the same proportions on any 16:9/16:10 display */
+  --fs: max(12px, min(1.5vw, 2.7vh));
+  --bg:#0d1b2e; --bg2:#22304d; --accent:#ffd98a; --accent2:#3b4a6b;
+  --ink:#ffffff; --card:rgba(12,18,32,.82);
+  --btn:#ffd98a; --btnText:#2b1d0e;
+  --hud-h: 2.6rem;
+}
+body[data-theme=title]   { --bg:#0b1626; --bg2:#22304d; --accent:#ffd98a; --accent2:#3b4a6b; --btn:#ffd98a; --btnText:#2b1d0e; --card:rgba(10,16,30,.78); }
+body[data-theme=michigan]{ --bg:#061532; --bg2:#1d3f73; --accent:#FFCB05; --accent2:#00274C; --btn:#FFCB05; --btnText:#00274C; --card:rgba(0,39,76,.84); }
+body[data-theme=navy]    { --bg:#0d1117; --bg2:#232b36; --accent:#f5a623; --accent2:#3a4656; --btn:#f5a623; --btnText:#1a1409; --card:rgba(10,14,20,.86); }
+body[data-theme=clemson] { --bg:#1a0c33; --bg2:#522D80; --accent:#F56600; --accent2:#522D80; --btn:#F56600; --btnText:#1d0f2e; --card:rgba(38,18,66,.86); }
+body[data-theme=desert]  { --bg:#2b1440; --bg2:#c1553b; --accent:#F2A93B; --accent2:#8f3d2a; --btn:#F2A93B; --btnText:#3a1a10; --card:rgba(58,26,16,.84); }
+body[data-theme=friday]  { --bg:#0a0810; --bg2:#2b2b2b; --accent:#e8b04b; --accent2:#97233F; --btn:#97233F; --btnText:#ffffff; --pillText:#2b0a12; --card:rgba(22,12,16,.88); }
+body[data-theme=summit]  { --bg:#0d1b2e; --bg2:#f7b267; --accent:#ffd98a; --accent2:#3b4a6b; --btn:#ffd98a; --btnText:#2b1d0e; --card:rgba(20,25,40,.82); }
+
+*{box-sizing:border-box}
+html{font-size:var(--fs)}
+html,body{height:100%;margin:0;overflow:hidden}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  font-weight:600; line-height:1.3;
+  transition:background .4s;
+}
+body.idle, body.idle *{cursor:none !important}
+[hidden]{display:none !important}
+button{font-family:inherit}
+b,strong{font-weight:800}
+
+#app{position:fixed;inset:0;display:flex;flex-direction:column}
+
+/* ---------- HUD: chapter label + trail map + sound toggle ---------- */
+#hud{
+  height:var(--hud-h); flex:0 0 var(--hud-h); z-index:20;
+  display:flex; align-items:center; gap:1rem; padding:0 9rem 0 1.2rem;
+  background:linear-gradient(to bottom, rgba(0,0,0,.55), rgba(0,0,0,0));
+  position:relative;
+}
+#hud-chapter{font-size:.95rem; font-weight:800; letter-spacing:.02em; white-space:nowrap; text-shadow:0 2px 6px rgba(0,0,0,.6)}
+#trail{height:2.3rem; width:auto; margin-left:auto}
+#trail .node{fill:rgba(255,255,255,.25); stroke:rgba(255,255,255,.6); stroke-width:3}
+#trail .node.done{fill:var(--accent); stroke:#fff}
+#trail .node.now{fill:var(--accent); stroke:#fff; animation:pulse 1.2s ease-in-out infinite}
+#trail .lbl{fill:#fff; font-size:22px; font-weight:800; text-anchor:middle}
+#trail .lbl.done, #trail .lbl.now{fill:var(--btnText)}
+#trail .path{fill:none; stroke:rgba(255,255,255,.5); stroke-width:5; stroke-dasharray:10 12}
+#trail .path.done{stroke:var(--accent); stroke-dasharray:none}
+#trail .flag{fill:var(--accent)}
+#sound{position:absolute; top:.55rem; right:1.2rem; z-index:25}
+body.closing #sound{display:none}
+.tiny{
+  font-size:.7rem; font-weight:700; padding:.25rem .6rem; border-radius:.4rem;
+  background:rgba(0,0,0,.45); color:#fff; border:2px solid rgba(255,255,255,.5); cursor:pointer;
+}
+.tiny:hover{background:rgba(255,255,255,.2)}
+
+/* ---------- Stage + screens ---------- */
+#stage{position:relative; flex:1 1 auto; min-height:0}
+.screen{
+  position:absolute; inset:0; display:flex; flex-direction:column;
+  opacity:0; transition:opacity .4s ease;
+}
+.screen.in{opacity:1}
+.screen.out{opacity:0; pointer-events:none}
+
+.scene{position:absolute; inset:calc(-1 * var(--hud-h)) 0 0 0; z-index:0; overflow:hidden; background:var(--bg)}
+.scene .layer{position:absolute; inset:-3%; will-change:transform; transition:transform .25s ease-out}
+.scene .layer svg{width:100%; height:100%; display:block}
+.scene.dim .layer{filter:brightness(.42) saturate(.85)}
+.scene.soft .layer{filter:brightness(.8)}
+body[data-theme=desert] .scene.dim .layer{filter:brightness(.58) saturate(.95)}
+.scene .shade{position:absolute; inset:0; background:linear-gradient(to bottom, rgba(0,0,0,.35), rgba(0,0,0,.72))}
+.photo-scene img.kb{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; animation:kb 22s ease-in-out infinite alternate}
+
+.content{position:relative; z-index:1; flex:1 1 auto; min-height:0; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:3rem 3rem .6rem; gap:.7rem}
+.screen[data-screen=title] .content{margin-left:36vw; padding-right:2rem}
+.screen[data-screen=title] .lead{max-width:32rem}
+.content.center{text-align:center}
+.actions{position:relative; z-index:1; flex:0 0 auto; display:flex; justify-content:center; align-items:center; gap:1rem; padding:.6rem 3rem 1.3rem}
+.hints{position:absolute; left:1.2rem; bottom:.8rem; z-index:2; font-size:.62rem; font-weight:700; opacity:.85; text-shadow:0 2px 4px #000}
+
+/* ---------- Type ---------- */
+.do{
+  position:absolute; top:.5rem; left:50%; transform:translateX(-50%); z-index:2; white-space:nowrap;
+  font-size:1.05rem; font-weight:800; letter-spacing:.01em;
+  background:var(--accent); color:var(--pillText, var(--btnText)); padding:.25rem 1rem; border-radius:2rem;
+  box-shadow:0 .2rem .6rem rgba(0,0,0,.35);
+}
+.kicker{font-size:1rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; opacity:.92}
+h1.giant{font-size:4.2rem; line-height:1; margin:.2rem 0 0; letter-spacing:.02em; text-shadow:0 .25rem 0 rgba(0,0,0,.45), 0 .6rem 1.4rem rgba(0,0,0,.5)}
+.sub{font-size:2rem; font-weight:900; letter-spacing:.35em; color:var(--accent); text-shadow:0 .2rem .6rem rgba(0,0,0,.6)}
+h2{font-size:2rem; line-height:1.1; margin:0; font-weight:900; text-shadow:0 .15rem .5rem rgba(0,0,0,.5)}
+h2.q{text-align:center; max-width:52rem}
+p{margin:0}
+.lead{font-size:1.25rem; max-width:44rem; text-shadow:0 2px 8px rgba(0,0,0,.8)}
+
+.card{background:var(--card); border:.14rem solid rgba(255,255,255,.18); border-radius:1rem; padding:1rem 1.4rem; box-shadow:0 .6rem 1.6rem rgba(0,0,0,.45)}
+.card p{font-size:1.1rem; line-height:1.35}
+.card.narration{max-width:40rem}
+.card.narration h2{margin:.15rem 0 .5rem}
+.row{display:flex; align-items:center; justify-content:center; gap:2rem; width:100%}
+
+/* ---------- Buttons ---------- */
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:.6rem;
+  min-height:3rem; padding:.5rem 1.6rem; font-size:1.15rem; font-weight:800; line-height:1.15;
+  border:0; border-radius:.7rem; background:var(--btn); color:var(--btnText);
+  box-shadow:0 .28rem 0 rgba(0,0,0,.4), 0 .6rem 1.2rem rgba(0,0,0,.35); cursor:pointer;
+  transition:transform .12s, filter .12s, box-shadow .12s, opacity .3s; text-align:center;
+}
+.btn.big{min-height:3.6rem; font-size:1.35rem; padding:.6rem 2.4rem}
+.btn:hover, .btn.hi{filter:brightness(1.12); transform:translateY(-.1rem); outline:.26rem solid #fff; outline-offset:.14rem}
+.btn:active{transform:translateY(.12rem); box-shadow:0 .1rem 0 rgba(0,0,0,.4)}
+.btn:disabled{opacity:.45; cursor:default; filter:none; transform:none; outline:none}
+.btn.continue{background:#fff; color:#111}
+
+.opts{display:grid; gap:.9rem; width:min(62rem, 100%); margin-top:.2rem}
+.opts.n2, .opts.n3{grid-template-columns:1fr}
+.opts.n4{grid-template-columns:1fr 1fr}
+.opt{justify-content:flex-start; text-align:left; min-height:3.2rem; padding:.5rem 1rem .5rem .6rem; width:100%}
+.opt .num{flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; width:2rem; height:2rem; border-radius:50%; background:var(--btnText); color:var(--btn); font-size:1.05rem; font-weight:900}
+.opt .lbl{flex:1 1 auto}
+.opt.wrong{opacity:.35; text-decoration:line-through; animation:shake .45s}
+.reaction{max-width:52rem; text-align:center}
+.reaction .picked{font-weight:900; text-transform:none; letter-spacing:0}
+.reaction p{font-size:1.35rem; margin-top:.4rem}
+.reaction.wrongbox{border-color:var(--accent)}
+
+/* ---------- Polaroids / photos ---------- */
+.polaroid{
+  flex:0 0 auto; margin:0; padding:.55rem .55rem .9rem; background:#fbf7ef; color:#2b2b2b;
+  transform:rotate(var(--rot, -3deg)); box-shadow:0 .8rem 1.8rem rgba(0,0,0,.55); border-radius:.15rem;
+  text-align:center;
+}
+.polaroid img{display:block; max-height:46vh; max-width:28vw; width:auto; height:auto; object-fit:contain; background:#111}
+.polaroid figcaption{width:min-content; min-width:100%; font-size:1rem; line-height:1.25; font-weight:700; padding-top:.5rem; font-style:italic}
+.polaroid.sm img{max-height:24vh; max-width:18vw}
+
+/* ---------- Mini-interactions ---------- */
+.content.mini{gap:.5rem}
+.note{font-size:1.2rem; font-weight:800; min-height:1.6rem; text-align:center; text-shadow:0 2px 6px rgba(0,0,0,.7); max-width:56rem}
+.note.big{font-size:2rem; color:var(--accent)}
+.playfield{position:relative; width:min(70rem, 100%); height:58vh; display:flex; align-items:center; justify-content:center}
+.playfield > svg{width:100%; height:100%}
+
+/* Big House */
+.section{fill:#5b6675; stroke:#0b1a2e; stroke-width:3; transition:fill .4s}
+.section.full{fill:#00274C}
+.fan{opacity:0; transform-box:fill-box; transform-origin:center}
+.fan.show{opacity:1; animation:pop .5s ease-out}
+.bighouse.roar .fan{animation:bounce .6s ease-in-out}
+.roar-text{font-size:110px; font-weight:900; fill:#FFCB05; stroke:#00274C; stroke-width:6; paint-order:stroke; text-anchor:middle; opacity:0}
+.roar-text.show{opacity:1; animation:pop .6s ease-out}
+
+/* Reactor */
+.reactor{display:grid; grid-template-columns:1.2fr 1fr; gap:2rem; width:100%; height:100%; align-items:center}
+.checklist{display:flex; flex-direction:column; gap:.55rem}
+.step{display:flex; align-items:center; gap:.9rem; background:rgba(10,14,20,.88); border:.12rem solid #3a4653; border-radius:.7rem; padding:.45rem .9rem; font-size:1.05rem; transition:border-color .4s, background .4s}
+.step.on{border-color:var(--accent); background:rgba(245,166,35,.12)}
+.step .idx{font-weight:900; color:var(--accent); width:1.4rem}
+.switch{width:3.2rem; height:1.5rem; border-radius:1rem; background:#2a343f; border:.12rem solid #55636f; position:relative; flex:0 0 auto; transition:background .3s}
+.switch::after{content:""; position:absolute; top:.1rem; left:.1rem; width:1.1rem; height:1.1rem; border-radius:50%; background:#8d9aa8; transition:left .3s, background .3s}
+.step.on .switch{background:#3d6b2b}
+.step.on .switch::after{left:1.7rem; background:#c7ff9a}
+.lamp{width:1rem; height:1rem; border-radius:50%; background:#3a3a3a; border:.1rem solid #666; flex:0 0 auto; transition:background .3s, box-shadow .3s}
+.step.on .lamp{background:#8cff5a; box-shadow:0 0 .6rem #8cff5a}
+.gaugebox{display:flex; flex-direction:column; align-items:center; gap:.4rem}
+.gaugebox svg{width:22rem; height:auto}
+.needle{transform-origin:200px 200px; transform:rotate(-120deg); transition:transform .8s cubic-bezier(.3,1.4,.5,1)}
+.readout{font-size:1.4rem; font-weight:900; color:var(--accent); font-variant-numeric:tabular-nums}
+.banner{position:absolute; left:50%; top:50%; transform:translate(-50%,-50%) rotate(-6deg) scale(2.5); opacity:0; font-size:3.2rem; font-weight:900; color:#fff; background:var(--accent2); border:.3rem solid var(--accent); padding:.4rem 1.6rem; border-radius:.6rem; letter-spacing:.08em; box-shadow:0 1rem 2rem rgba(0,0,0,.6); pointer-events:none}
+.banner{visibility:hidden}
+.banner.show{visibility:visible; animation:stamp .6s ease-out forwards}
+
+/* Org chart */
+.org{position:relative; width:100%; height:100%}
+.org svg{position:absolute; inset:0; width:100%; height:100%}
+.org line{stroke:var(--accent); stroke-width:5; stroke-linecap:round; opacity:0; transition:opacity .4s}
+.org line.show{opacity:1}
+.org line.dotted{stroke-dasharray:14 12}
+.obox{position:absolute; transform:translate(-50%,-50%) scale(.2); opacity:0; background:var(--card); border:.16rem solid var(--accent); border-radius:.8rem; padding:.5rem .9rem; text-align:center; min-width:11rem; transition:transform .45s cubic-bezier(.3,1.4,.5,1), opacity .3s; box-shadow:0 .6rem 1.4rem rgba(0,0,0,.5)}
+.obox.show{transform:translate(-50%,-50%) scale(1); opacity:1}
+.obox .t{font-size:1.15rem; font-weight:900}
+.obox .s{font-size:.95rem; opacity:.9}
+.obox.top{background:var(--accent); color:var(--btnText); border-color:#fff; min-width:14rem}
+.obox.top .t{font-size:1.5rem}
+.obox.dotted{border-style:dashed; background:rgba(0,0,0,.55)}
+
+/* Climb */
+.climb{position:relative; width:100%; height:100%}
+.climb > svg{position:absolute; inset:0; width:100%; height:100%; transition:opacity .5s}
+.climb.revealed > svg{opacity:0}
+#hiker{transition:transform .8s ease-in-out}
+.trailseg{stroke:rgba(255,255,255,.45); stroke-width:6; stroke-dasharray:14 14; fill:none; stroke-linecap:round}
+.trailseg.done{stroke:#ffd98a; stroke-dasharray:none}
+.dust{opacity:0; transform-box:fill-box; transform-origin:center}
+.dust.show{animation:dust 1.2s ease-out}
+.reveal{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.5rem; opacity:0; transform:scale(.9); transition:opacity .7s, transform .7s}
+.reveal.show{opacity:1; transform:scale(1)}
+.reveal .frame{padding:.5rem; background:#fbf7ef; box-shadow:0 1rem 2.4rem rgba(0,0,0,.6); border-radius:.2rem}
+.reveal img{display:block; height:50vh; width:auto; max-width:64vw; object-fit:cover}
+.reveal .cap{font-size:1.15rem; font-weight:800; text-shadow:0 2px 6px #000}
+
+/* Fourth and goal */
+.player{transition:transform .5s}
+#ball{transition:none}
+.td-text{font-size:120px; font-weight:900; fill:#fff; stroke:#97233F; stroke-width:8; paint-order:stroke; text-anchor:middle; opacity:0}
+.td-text.show{opacity:1; animation:pop .6s ease-out}
+
+/* Grill */
+.grill{display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; width:100%; height:100%; align-items:center}
+.grill svg{width:100%; height:auto; max-height:52vh}
+.gneedle{transform-origin:300px 300px; transform:rotate(-80deg); transition:transform .8s cubic-bezier(.3,1.4,.5,1)}
+.zone-label{font-size:32px; font-weight:800; fill:#fff; text-anchor:middle}
+.dish{transform-box:fill-box; transform-origin:center}
+.grill.perfect .dish{animation:sizzle .5s ease-in-out 2}
+.grill.perfect .heatline{animation:pop .5s ease-out}
+.grillside{display:flex; flex-direction:column; align-items:center; gap:.6rem}
+.grillside .polaroid{opacity:0; transform:rotate(3deg) scale(.6); transition:opacity .5s, transform .5s}
+.grillside .polaroid.show{opacity:1; transform:rotate(3deg) scale(1)}
+.tempread{font-size:1.5rem; font-weight:900; color:var(--accent)}
+
+/* Badge */
+.badge{display:inline-flex; flex-direction:column; align-items:center; gap:.3rem}
+.badge svg{width:9rem; height:9rem; filter:drop-shadow(0 .5rem .8rem rgba(0,0,0,.6))}
+.badge.small svg{width:5rem; height:5rem}
+.badge .bname{font-size:.95rem; font-weight:900; text-transform:uppercase; letter-spacing:.08em; text-align:center}
+.badge.stamp svg{animation:stamp .6s ease-out}
+.earned{display:flex; align-items:center; justify-content:center; gap:3rem; width:100%}
+.earned-left{display:flex; flex-direction:column; align-items:center; gap:.5rem; max-width:34rem; text-align:center}
+.earned-left .bname{font-size:2rem; font-weight:900; color:var(--accent)}
+.earned .badge .bname{display:none}
+.earned-left .rtext{font-size:1.25rem}
+
+/* Summit flag */
+.flagwrap{position:relative; width:min(70rem,100%); height:46vh; display:flex; align-items:flex-end; justify-content:center}
+.pole{position:absolute; left:50%; bottom:0; width:.5rem; height:100%; background:linear-gradient(#e8e0cc,#8d846f); border-radius:.3rem; transform:translateX(-50%); box-shadow:0 0 .6rem rgba(0,0,0,.6)}
+.cloth{position:absolute; left:50%; top:.5rem; width:32rem; height:16rem; background:linear-gradient(135deg,#fff8e6,#f1e4c4); clip-path:polygon(0 0, 100% 0, 92% 50%, 100% 100%, 0 100%); box-shadow:0 1rem 2rem rgba(0,0,0,.5); display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:1fr 1fr; padding:1rem 3rem 1rem 1.2rem; gap:.4rem; transform-origin:left center; animation:wave 4s ease-in-out infinite}
+.cloth .slot{position:relative; display:flex; justify-content:center}
+.cloth .ghost{position:absolute; left:50%; top:2.4rem; width:4.4rem; height:4.4rem; transform:translate(-50%,-50%); border:.18rem dashed rgba(0,0,0,.22); border-radius:50%}
+.cloth .badge{color:#2b2b2b; opacity:0; transform:translateY(60vh) scale(.3); transition:transform .6s cubic-bezier(.3,1.3,.5,1), opacity .4s}
+.cloth .badge.land{opacity:1; transform:translateY(0) scale(1)}
+.cloth .badge svg{width:4.8rem; height:4.8rem}
+.cloth .badge .bname{font-size:.72rem}
+
+/* Trail register entries */
+.entries{display:grid; grid-template-columns:1fr 1fr; gap:1rem; width:min(76rem,100%)}
+.entry{background:#fdf6e3; color:#2b2b2b; border-radius:.3rem; padding:.7rem 1.1rem .8rem; box-shadow:0 .6rem 1.4rem rgba(0,0,0,.5);
+  background-image:repeating-linear-gradient(to bottom, transparent 0, transparent calc(1.5rem - 2px), rgba(120,90,40,.22) calc(1.5rem - 2px), rgba(120,90,40,.22) 1.5rem);
+  transform:rotate(var(--rot,0deg)) scale(.5); opacity:0; transition:transform .45s cubic-bezier(.3,1.4,.5,1), opacity .3s}
+.entry.show{transform:rotate(var(--rot,0deg)) scale(1); opacity:1}
+.entry .who{font-size:.9rem; font-weight:900; text-transform:uppercase; letter-spacing:.1em; color:#8a4b1f; border-bottom:2px solid #c9a86a; padding-bottom:.2rem; margin-bottom:.35rem}
+.entry .msg{font-size:1.05rem; line-height:1.5rem; font-style:italic; font-weight:700}
+.entry .sig{font-size:1rem; font-weight:900; text-align:right; margin-top:.3rem; font-style:italic}
+
+/* Expedition log + filmstrip */
+.logwrap{display:flex; align-items:center; justify-content:center; gap:2.5rem; width:100%}
+.log{max-width:36rem}
+.log p{font-size:1.25rem; line-height:1.5; margin-bottom:.6rem}
+.log p.final{font-size:1.6rem; font-weight:900; color:var(--accent)}
+.filmstrip{display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:.7rem; max-width:30vw}
+.filmstrip img{height:24vh; width:auto; border:.3rem solid #fbf7ef; box-shadow:0 .6rem 1.4rem rgba(0,0,0,.6); background:#111}
+
+/* Closing */
+.closing{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.6rem; z-index:1}
+.closing .frame{padding:.6rem; background:#fbf7ef; box-shadow:0 1.2rem 3rem rgba(0,0,0,.65)}
+.closing img{display:block; height:62vh; width:auto; max-width:80vw; object-fit:cover}
+.closing h1{font-size:3rem; margin:0; text-shadow:0 .25rem 0 rgba(0,0,0,.4), 0 .6rem 1.4rem rgba(0,0,0,.6)}
+.closing .sub2{font-size:1.5rem; font-weight:900; color:var(--accent); text-shadow:0 2px 8px #000}
+.restart-link{position:absolute; right:1rem; bottom:.7rem; font-size:.6rem; opacity:.55; color:#fff; text-decoration:underline; cursor:pointer; z-index:3}
+
+#confetti{position:fixed; inset:0; z-index:30; pointer-events:none}
+
+/* ---------- Animations (state animations all <= 1.5s) ---------- */
+@keyframes pulse{0%,100%{r:14}50%{r:18}}
+@keyframes pop{0%{transform:scale(.2);opacity:0}70%{transform:scale(1.15)}100%{transform:scale(1);opacity:1}}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-12px)}40%{transform:translateX(12px)}60%{transform:translateX(-8px)}80%{transform:translateX(8px)}}
+@keyframes stamp{0%{transform:translate(-50%,-50%) rotate(-6deg) scale(2.5);opacity:0}60%{transform:translate(-50%,-50%) rotate(-6deg) scale(.95);opacity:1}100%{transform:translate(-50%,-50%) rotate(-6deg) scale(1);opacity:1}}
+.badge.stamp svg{animation:stamp2 .6s ease-out}
+@keyframes stamp2{0%{transform:rotate(-12deg) scale(2.4);opacity:0}60%{transform:rotate(3deg) scale(.95);opacity:1}100%{transform:rotate(0) scale(1);opacity:1}}
+@keyframes dust{0%{opacity:0;transform:scale(.3) translateY(0)}30%{opacity:.9}100%{opacity:0;transform:scale(2.2) translateY(-40px)}}
+@keyframes sizzle{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-6px) rotate(-3deg)}}
+/* ambient loops (decorative only, never gate progress) */
+@keyframes kb{0%{transform:scale(1)}100%{transform:scale(1.08)}}
+@keyframes leaf{0%{transform:translate(0,-80px) rotate(0)}100%{transform:translate(90px,980px) rotate(600deg)}}
+@keyframes twinkle{0%,100%{opacity:.25}50%{opacity:1}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+@keyframes smoke{0%{transform:translateY(0) scale(.6);opacity:.35}100%{transform:translateY(-140px) scale(1.6);opacity:0}}
+@keyframes wave{0%,100%{transform:skewY(0deg)}50%{transform:skewY(1.5deg)}}
+@keyframes drift{0%{transform:translateX(0)}100%{transform:translateX(-20px)}}
+.leaf{animation:leaf 8s linear infinite}
+.tw{animation:twinkle 3s ease-in-out infinite}
+.bl{animation:blink 1.6s ease-in-out infinite}
+.smoke{animation:smoke 3s ease-out infinite; transform-box:fill-box; transform-origin:center}
+.ff{animation:twinkle 2.6s ease-in-out infinite}
+.star{animation:twinkle 4s ease-in-out infinite}
+.summit-sky .dawn{opacity:0; transition:opacity 1.5s ease}
+.summit-sky.day .dawn{opacity:1}
+.summit-sky .stars{transition:opacity 1.5s ease}
+.summit-sky.day .stars{opacity:0}
+.summit-sky.instant .dawn, .summit-sky.instant .stars{transition:none}
+</style>
+</head>
+<body data-theme="title">
+<div id="app">
+  <header id="hud" hidden>
+    <div id="hud-chapter">Chapter 1 of 6</div>
+    <svg id="trail" viewBox="0 0 980 80" aria-hidden="true">
+      <path class="path" id="tp0" d="M40 40 L200 40"/>
+      <path class="path" id="tp1" d="M200 40 L360 40"/>
+      <path class="path" id="tp2" d="M360 40 L520 40"/>
+      <path class="path" id="tp3" d="M520 40 L680 40"/>
+      <path class="path" id="tp4" d="M680 40 L840 40"/>
+      <path class="path" id="tp5" d="M840 40 L930 40"/>
+      <g id="tn1"><circle class="node" cx="40" cy="40" r="14"/><text class="lbl" x="40" y="48">1</text></g>
+      <g id="tn2"><circle class="node" cx="200" cy="40" r="14"/><text class="lbl" x="200" y="48">2</text></g>
+      <g id="tn3"><circle class="node" cx="360" cy="40" r="14"/><text class="lbl" x="360" y="48">3</text></g>
+      <g id="tn4"><circle class="node" cx="520" cy="40" r="14"/><text class="lbl" x="520" y="48">4</text></g>
+      <g id="tn5"><circle class="node" cx="680" cy="40" r="14"/><text class="lbl" x="680" y="48">5</text></g>
+      <g id="tn6"><circle class="node" cx="840" cy="40" r="14"/><text class="lbl" x="840" y="48">6</text></g>
+      <g class="flag"><rect x="928" y="14" width="4" height="52"/><polygon points="932,14 972,26 932,38"/></g>
+    </svg>
+  </header>
+  <button id="sound" class="tiny" type="button">♪ Sound: Off</button>
+  <main id="stage"></main>
+</div>
+<canvas id="confetti"></canvas>
+
+<script>
+(() => {
+'use strict';
+
+/* ==================================================================
+   1. CONTENT — every word Chuck sees lives here. Edit freely.
+   ================================================================== */
+
+const CHAPTERS = {
+  1: { name:'Ann Arbor',        camp:'Base Camp One',   theme:'michigan', scene:'annarbor', badge:'The Wolverine' },
+  2: { name:'The Reactor Room', camp:'Base Camp Two',   theme:'navy',     scene:'reactor',  badge:'Nuke' },
+  3: { name:'Clemson',          camp:'Base Camp Three', theme:'clemson',  scene:'clemson',  badge:'The Tiger' },
+  4: { name:'The Desert',       camp:'Base Camp Four',  theme:'desert',   scene:'desert',   badge:'Desert Fox' },
+  5: { name:'Friday Night',     camp:'Base Camp Five',  theme:'friday',   scene:'friday',   badge:'Captain of the Crew' },
+  6: { name:'The Summit',       camp:'The Summit',      theme:'summit',   scene:'summit',   badge:'The Summit' },
+};
+
+const WRONG_TEXT = 'Aww boner. The room disagrees — try again.';
+
+const screens = [
+  /* ---------- TITLE ---------- */
+  { id:'title', type:'title', theme:'title', photo:'summit.jpg',
+    do:'Press the big button.',
+    kicker:'Expedition log · September 5, 2026',
+    title:'CHUCK AT 65',
+    subtitle:'THE EXPEDITION',
+    lead:'One man. Six base camps. Sixty-five years of climbing.<br>Today: the summit.',
+    button:'Begin the expedition →',
+    hints:'F = fullscreen · R = restart · ♪ sound toggle is top right' },
+
+  /* ---------- CHAPTER 1 · ANN ARBOR ---------- */
+  { id:'c1-arrival', type:'arrival', chapter:1, heading:'Ann Arbor',
+    text:'The leaves are turning maize and blue, the air smells like cold grass and burnt coffee, and somewhere a marching band is warming up. A young man arrives with a duffel bag, an engineer\'s brain, and no idea yet what a Hawaiian shirt is.' },
+  { id:'c1-choice', type:'choice', chapter:1,
+    question:'It\'s a fall Saturday in Ann Arbor. What\'s the move?',
+    options:[
+      { label:'The game, obviously', reaction:'Obviously. A hundred thousand of your closest friends, a maize-and-blue sky, and a hot dog that costs more than your first car.' },
+      { label:'Library. Kidding. The game.', reaction:'Nobody believed you for a second. The library doesn\'t even open on game day. (It does. He\'s never checked.)' },
+      { label:'Fricken fantastic', reaction:'Classic. He wasn\'t listening to the question.' },
+    ] },
+  { id:'c1-mini', type:'mini', chapter:1, kind:'bighouse' },
+  { id:'c1-trivia', type:'trivia', chapter:1,
+    question:'Chuck went to two schools. Which one does he actually root for?',
+    options:['Michigan', 'Clemson', 'Both equally', 'He doesn\'t watch college sports'],
+    answer:0,
+    reaction:'He\'s not a college-sports guy... but he\'s a Michigan guy.',
+    photo:{ src:'navy-blues.jpg', caption:'The midshipman years.' } },
+
+  /* ---------- CHAPTER 2 · THE REACTOR ROOM ---------- */
+  { id:'c2-arrival', type:'arrival', chapter:2, heading:'The Reactor Room',
+    text:'Pearl Harbor, 1980s. Below the waterline of the USS Olympia, a young Navy nuclear engineer keeps a reactor humming in the dark. Years before any of his kids existed, he was already the calmest guy in the most serious room on the boat.',
+    photo:{ src:'hawaii-beach.jpg', caption:'Shore leave.' } },
+  { id:'c2-choice', type:'choice', chapter:2,
+    question:'The XO leans in: "Status report, Fries?"',
+    options:[
+      { label:'All systems nominal, sir', reaction:'Textbook. The XO nods once, which in the 1980s Navy counts as a standing ovation.' },
+      { label:'Running a few degrees hot. I\'ve got it.', reaction:'Of course you\'ve got it. Cool under pressure, literally. The man has been managing heat since long before the grill.' },
+      { label:'Fricken fantastic, sir.', reaction:'Not in the manual. Logged anyway. Somewhere, a chief just sighed.' },
+    ] },
+  { id:'c2-mini', type:'mini', chapter:2, kind:'reactor' },
+  { id:'c2-trivia', type:'trivia', chapter:2,
+    question:'Where was the USS Olympia based when Chuck served?',
+    options:['Pearl Harbor', 'San Diego', 'Norfolk', 'Groton'],
+    answer:0,
+    reaction:'Pearl Harbor. Sunrise over the water, then back down to the reactor.',
+    photo:{ src:'navy-whites.jpg', caption:'Ensign Fries, with his parents.' } },
+
+  /* ---------- CHAPTER 3 · CLEMSON ---------- */
+  { id:'c3-arrival', type:'arrival', chapter:3, heading:'Clemson',
+    text:'Orange sunsets, purple dusk, and a stack of case studies. Chuck got the MBA, learned to run the numbers, and quietly started running everything else too.',
+    photo:{ src:'lake-vest.jpg', caption:'Pink is a power color.' } },
+  { id:'c3-choice', type:'choice', chapter:3,
+    question:'Case study: you have one grill, twelve guests, and a Cardinals kickoff in 40 minutes. Strategy?',
+    options:[
+      { label:'Delegate the slaw', reaction:'Textbook MBA. Chuck does not make slaw. Chuck supervises slaw.' },
+      { label:'Ribeyes hit the grill at T-minus 15', reaction:'Precision. Every guest gets medium-rare at exactly kickoff. Anyone who asks for well-done is eating in the driveway.' },
+      { label:'Skip the game, the shrimp tacos are the main event.', reaction:'Bold. Correct. The shrimp tacos have a better record than the Cardinals anyway.' },
+    ] },
+  { id:'c3-mini', type:'mini', chapter:3, kind:'orgchart' },
+  { id:'c3-trivia', type:'trivia', chapter:3,
+    question:'What degree did Chuck get at Clemson?',
+    options:['MBA', 'Nuclear Engineering', 'Hospitality', 'Culinary Arts'],
+    answer:0,
+    reaction:'MBA. The nuclear part he already had. The hospitality part came later, with Anand.',
+    photo:{ src:'three-kids.jpg', caption:'Base camp, 1990s.' } },
+
+  /* ---------- CHAPTER 4 · THE DESERT ---------- */
+  { id:'c4-arrival', type:'arrival', chapter:4, heading:'The Desert',
+    text:'Golden hour on the ridge. Saguaros standing guard, the Superstitions going purple on the horizon, the valley lights coming on below. Less a silver fox than a desert fox: happiest anywhere the ground is rock and the sky is huge.',
+    photo:{ src:'desert-arch.jpg', caption:'Field note: desert fox, natural habitat.' } },
+  { id:'c4-choice', type:'choice', chapter:4,
+    question:'Desert fox, pick tomorrow\'s trail:',
+    options:[
+      { label:'South Mountain (home turf)', reaction:'Home turf. He knows every rock on that ridge by name, and a few of them know him back.' },
+      { label:'The Superstitions (the big one)', reaction:'The big one. He\'ll be at the trailhead before the sun, checking his pack for the third time.' },
+      { label:'Anywhere with a saguaro', reaction:'Correct answer. The desert fox doesn\'t pick trails. He picks views.' },
+      { label:'Whichever one has the shortest approach', reaction:'Every trail\'s shorter when you\'re closer to the ground. Okay, that\'s the only one, we promise.' },
+    ] },
+  { id:'c4-mini', type:'mini', chapter:4, kind:'climb' },
+  { id:'c4-trivia', type:'trivia', chapter:4,
+    question:'Which describes Chuck?',
+    options:['Silver fox', 'Desert fox', 'Arctic fox', 'Fox News'],
+    answer:1,
+    reaction:'Desert fox. Rock underfoot, sky overhead, sunscreen in the pack.',
+    photo:{ src:'summit.jpg', caption:'Above the treeline. Still smiling.' } },
+
+  /* ---------- CHAPTER 5 · FRIDAY NIGHT ---------- */
+  { id:'c5-arrival', type:'arrival', chapter:5, heading:'Friday Night',
+    text:'The patio is warm, the game is on, and the crew is here: Anand Patel, best friend and partner at Eclipse Hospitality, plus Wayne, AP, Manish, and Dipen, with Warren Stern and Ian Katzman rolling in late. Twenty-plus years of Cardinals season tickets means he has sat through every losing season with a smile and a beer.',
+    photo:{ src:'the-crew.jpg', caption:'The crew, on location.' } },
+  { id:'c5-choice', type:'choice', chapter:5,
+    question:'The crew\'s at the bar. What\'s your order?',
+    options:[
+      { label:'A cold beer', reaction:'Simple. Correct. Anand already ordered one for you anyway.' },
+      { label:'A cocktail (something with a real spirit in it)', reaction:'Something with a real spirit in it. The bartender respects this. The crew pretends not to.' },
+      { label:'Whatever Anand\'s having', reaction:'Twenty years of friendship, one tab. Nobody is sure who\'s paying.' },
+      { label:'Something spicier than the food', reaction:'He orders it hotter than anyone at the table, sweats straight through the Hawaiian shirt, and calls it fricken fantastic.' },
+    ] },
+  { id:'c5-mini', type:'mini', chapter:5, kind:'fourthgoal' },
+  { id:'c5-grill', type:'mini', chapter:5, kind:'grill' },
+  { id:'c5-trivia', type:'trivia', chapter:5,
+    question:'What does the crew call him behind his back?',
+    options:['Chuck Stuff', 'Captain', 'The Nuke', 'The Desert Fox'],
+    answer:0,
+    reaction:'He hates it. That\'s why it stuck. Moving on — never again.',
+    photo:{ src:'the-crew.jpg', caption:'Twenty years of Fridays.' },
+    next:'To the summit →' },
+
+  /* ---------- CHAPTER 6 · THE SUMMIT (sincere, no jokes) ---------- */
+  { id:'c6-flag', type:'summit', chapter:6,
+    heading:'The Summit',
+    text:'Night gives way to morning. Six base camps, six badges, one flag.',
+    button:'Raise the flag' },
+  { id:'c6-messages', type:'messages', chapter:6,
+    heading:'Messages from base camp',
+    entries:[
+      { who:'Jared & Molly', rot:-1.5,
+        msg:'Dad, you taught us the best view is always one more switchback up, and that you never turn around early. Thank you for every mile. We love you.',
+        sig:'— Jared & Molly' },
+      { who:'Dennis & Jill', rot:1,
+        msg:'Sixty-five, and you still out-hike everyone at the table and then cook dinner for all of them. We are not keeping up. We are just grateful to be on the trail with you.',
+        sig:'— Dennis & Jill' },
+      { who:'Joanie', rot:-1,
+        msg:'Grandpa. Big hat. Big smile. Next hike, I ride on your shoulders, and I will hold on tight. Love you.',
+        sig:'— Joanie, age 9 months (as dictated)' },
+      { who:'Sammy', rot:1.5,
+        msg:'You have been at the top of every mountain I have ever climbed, one step ahead, waiting for me. Happy 65th. Save me a spot at the summit.',
+        sig:'— Sammy' },
+    ] },
+  { id:'c6-log', type:'log', chapter:6,
+    heading:'Expedition log · Final entry',
+    lines:[
+      'Ann Arbor. Pearl Harbor. Clemson. The Arizona desert.',
+      'Every base camp built the man standing here now: sixty-five years up, surrounded by his kids, his granddaughter, and his crew.',
+      'The trail behind him is long. The trail ahead is longer.',
+    ],
+    final:'Happy 65th, Chuck. Best is still ahead.',
+    photos:['new-dad.jpg', 'with-mom.jpg', 'dinner-trio.jpg', 'family-today.jpg'],
+    button:'Raise a glass' },
+  { id:'c6-closing', type:'closing', chapter:6,
+    photo:'chuck.jpg',
+    title:'Happy 65th, Chuck.',
+    sub:'Best is still ahead.' },
+];
+
+/* ---------- Mini-interaction text ---------- */
+const MINI_TEXT = {
+  bighouse: {
+    do:'Press the big button to fill the Big House.',
+    first:'Add a section',
+    labels:['Add a section','Add a section','Add a section','Add a section','Add a section','Add a section','Add a section','Cue the cheer'],
+    notes:['Sections filled: 1 of 8','2 of 8. The student section is loud already.','3 of 8','4 of 8. Halfway. Someone just paid $9 for a pretzel.','5 of 8','6 of 8','7 of 8. One more.','ROAR.'],
+    done:'A hundred thousand people, one Chuck. The Big House is full.',
+  },
+  reactor: {
+    do:'Press the big button to run the startup sequence.',
+    first:'Start pumps',
+    steps:['Primary coolant pumps: start', 'Rod control: withdraw', 'Steam generators: online', 'Turbine: spin up', 'Ahead, full'],
+    labels:['Withdraw rods', 'Bring steam online', 'Spin up turbine', 'Ahead, full', 'Continue →'],
+    notes:['Pumps online. The hum every nuke can hear in his sleep.', 'Rods withdrawing. Neutron count climbing, right on the curve.', 'Steam online. Engine room reports ready.', 'Turbine up to speed. Waiting on the order.', 'AHEAD, FULL.'],
+    done:'Ahead, full. The Olympia slips out of Pearl Harbor. Chuck is in his twenties and running a reactor.',
+  },
+  orgchart: {
+    do:'Press the big button to build the org chart.',
+    first:'Place Chuck at the top',
+    labels:['Add: Family', 'Add: Grill', 'Add: Hiking Crew', 'Add: Friday Night Crew', 'Add the dotted line', 'Continue →'],
+    notes:['Chief Executive of Saturday.', 'Family: direct reports. Frequent unscheduled meetings.', 'Grill: a department of one. No delegation. Ever.', 'Hiking Crew: meets at dawn. Attendance mandatory.', 'Friday Night Crew: meets at the bar. Attendance enthusiastic.', 'Dotted line, as required by every real org chart.'],
+    boxes:[
+      { cls:'top', t:'Chuck', s:'Chief Executive of Saturday', x:50, y:14 },
+      { t:'Family', s:'direct reports', x:14, y:70 },
+      { t:'Grill', s:'department of one', x:38, y:70 },
+      { t:'Hiking Crew', s:'meets at dawn', x:62, y:70 },
+      { t:'Friday Night Crew', s:'meets at the bar', x:86, y:70 },
+      { cls:'dotted', t:'Eclipse Hospitality', s:'(see Anand)', x:84, y:20 },
+    ],
+    done:'Chart complete. HR has no notes.',
+  },
+  climb: {
+    do:'Press the big button to climb.',
+    first:'Climb',
+    notes:['Switchback one. Hat on, pack tight.', 'Switchback two. The valley starts to open up.', 'Switchback three. He hasn\'t stopped once. He never does.', 'The dust kicks up... ah... ah... AH—', 'Bless you.', 'Switchback five. Sun\'s getting low.', 'Switchback six. The Superstitions turn purple.', 'Almost there.', 'The top.'],
+    sneezeButton:'HORSE SHIT',
+    blessButton:'Keep climbing',
+    climbButton:'Climb',
+    reveal:'The view from the top. The desert fox, in his habitat.',
+  },
+  fourthgoal: {
+    do:'Press the big button. Fourth and goal.',
+    first:'Snap',
+    labels:['Throw', 'Catch', 'Continue →'],
+    notes:['Snap. Clean.', 'The throw is up...', 'TOUCHDOWN.'],
+    done:'Touchdown. Cardinals win one. Chuck\'s seen this maybe... nine times in twenty years. Worth every season ticket.',
+  },
+  grill: {
+    do:'Press the big button to dial in the grill.',
+    first:'Light it',
+    labels:['Preheat', 'Dial it in', 'Continue →'],
+    notes:['Lid down. Preheating. Nobody touch anything.', 'Almost. Chuck is hovering with the tongs.', 'Perfect. Anand is already reaching for a taco.'],
+    dishes:['Spicy grilled shrimp tacos, jalapeño slaw', 'Ribeyes, medium-rare, no exceptions'],
+    photo:{ src:'tailgate.jpg', caption:'Tailgate HQ. Grill master at work.' },
+    title:'Tailgate Grill Master',
+  },
+  summit: { do:'Press the big button to raise the flag.', afterDo:'Six badges on the flag. Press Continue.', names:'The Wolverine · Nuke · The Tiger · Desert Fox · Captain of the Crew · The Summit' },
+  messages: { do:'Press the big button to open the next entry.', first:'Open the first entry', label:'Open the next entry', afterDo:'Four entries. Press Continue.' },
+  log: { do:'Read the final entry, then raise a glass.' },
+};
+
+/* ==================================================================
+   2. BADGES — one SVG emblem per chapter (shapes and colors only)
+   ================================================================== */
+const BADGE_SVG = {
+  1: `<circle cx="100" cy="100" r="92" fill="#00274C"/><circle cx="100" cy="100" r="80" fill="none" stroke="#FFCB05" stroke-width="8"/>
+      <g transform="rotate(-30 100 100)"><ellipse cx="100" cy="100" rx="52" ry="30" fill="#7a3b12" stroke="#FFCB05" stroke-width="5"/><line x1="82" y1="100" x2="118" y2="100" stroke="#fff" stroke-width="4"/><line x1="90" y1="94" x2="90" y2="106" stroke="#fff" stroke-width="3"/><line x1="100" y1="94" x2="100" y2="106" stroke="#fff" stroke-width="3"/><line x1="110" y1="94" x2="110" y2="106" stroke="#fff" stroke-width="3"/></g>
+      <path d="M48 60 q8 -18 26 -14 q-2 16 -18 22 z" fill="#FFCB05"/><path d="M152 138 q-8 18 -26 14 q2 -16 18 -22 z" fill="#FFCB05"/>`,
+  2: `<circle cx="100" cy="100" r="92" fill="#1a222b"/><circle cx="100" cy="100" r="80" fill="none" stroke="#f5a623" stroke-width="8"/>
+      <g fill="none" stroke="#f5a623" stroke-width="6"><ellipse cx="100" cy="100" rx="50" ry="20"/><ellipse cx="100" cy="100" rx="50" ry="20" transform="rotate(60 100 100)"/><ellipse cx="100" cy="100" rx="50" ry="20" transform="rotate(120 100 100)"/></g>
+      <circle cx="100" cy="100" r="11" fill="#fff1b8"/>`,
+  3: `<circle cx="100" cy="100" r="92" fill="#522D80"/><circle cx="100" cy="100" r="80" fill="none" stroke="#F56600" stroke-width="8"/>
+      <polygon points="100,62 156,86 100,110 44,86" fill="#F56600"/><path d="M68 96 v22 q32 22 64 0 v-22" fill="#c94f00"/><rect x="66" y="96" width="68" height="6" fill="#F56600"/>
+      <line x1="156" y1="86" x2="156" y2="120" stroke="#ffd7b5" stroke-width="5"/><circle cx="156" cy="124" r="6" fill="#ffd7b5"/>`,
+  4: `<circle cx="100" cy="100" r="92" fill="#8f3d2a"/><circle cx="100" cy="100" r="80" fill="none" stroke="#F2A93B" stroke-width="8"/>
+      <circle cx="128" cy="76" r="20" fill="#ffe08a"/>
+      <g fill="none" stroke="#24140f" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"><line x1="88" y1="150" x2="88" y2="70"/><path d="M80 110 h-18 v-26"/><path d="M96 122 h18 v-34"/></g>
+      <path d="M40 150 h120" stroke="#F2A93B" stroke-width="6" stroke-linecap="round"/>`,
+  5: `<circle cx="100" cy="100" r="92" fill="#2b2b2b"/><circle cx="100" cy="100" r="80" fill="none" stroke="#97233F" stroke-width="8"/>
+      <path d="M76 66 h48 l-6 74 h-36 z" fill="#e8b04b" stroke="#fff" stroke-width="4"/><path d="M72 62 h56 v12 h-56 z" fill="#fff"/><circle cx="80" cy="58" r="8" fill="#fff"/><circle cx="100" cy="54" r="10" fill="#fff"/><circle cx="120" cy="58" r="8" fill="#fff"/>
+      <path d="M124 92 q22 4 22 24 q0 20 -22 22" fill="none" stroke="#fff" stroke-width="6"/>`,
+  6: `<circle cx="100" cy="100" r="92" fill="#3b4a6b"/><circle cx="100" cy="100" r="80" fill="none" stroke="#ffd98a" stroke-width="8"/>
+      <polygon points="40,140 100,58 160,140" fill="#1c2a4a"/><polygon points="84,80 100,58 116,80 108,84 100,76 92,84" fill="#fff8e6"/>
+      <line x1="100" y1="58" x2="100" y2="30" stroke="#ffd98a" stroke-width="5"/><polygon points="100,30 126,38 100,46" fill="#ffd98a"/>
+      <text x="100" y="134" text-anchor="middle" font-size="34" font-weight="900" fill="#ffd98a" font-family="inherit">65</text>`,
+};
+function badgeHTML(ch, cls = '') {
+  return `<div class="badge ${cls}"><svg viewBox="0 0 200 200" aria-hidden="true">${BADGE_SVG[ch]}</svg><div class="bname">${CHAPTERS[ch].badge}</div></div>`;
+}
+
+/* ==================================================================
+   3. SCENES — layered SVG backdrops (far / mid / near) for parallax
+   ================================================================== */
+function rng(seed) { let s = seed; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
+const L = (inner) => `<svg viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${inner}</svg>`;
+
+const SCENES = {
+  annarbor() {
+    const r = rng(11);
+    const bldgs = [[120,560,260,260],[420,620,180,200],[740,600,320,220],[1100,640,200,180],[1340,580,260,240],[1640,650,220,170]];
+    let win = '';
+    for (const [x,y,w,h] of bldgs) for (let wx = x+16; wx < x+w-24; wx += 38) for (let wy = y+18; wy < y+h-30; wy += 46)
+      if (r() < .5) win += `<rect x="${wx}" y="${wy}" width="16" height="22" fill="#FFCB05" opacity="${(.45+r()*.5).toFixed(2)}"/>`;
+    const cols = ['#d9541e','#f28c28','#ffcb05','#b3261e','#e8722a'];
+    const tree = (x, base, h) => {
+      let f = `<rect x="${x-11}" y="${base-h*.55}" width="22" height="${h*.55}" fill="#3b2314"/>`;
+      for (let i = 0; i < 6; i++) f += `<circle cx="${(x+(r()-.5)*h*.7).toFixed(0)}" cy="${(base-h*.62+(r()-.5)*h*.4).toFixed(0)}" r="${(h*.2+r()*h*.1).toFixed(0)}" fill="${cols[(i+Math.floor(r()*5))%5]}"/>`;
+      return f;
+    };
+    let leaves = '';
+    for (let i = 0; i < 20; i++) leaves += `<ellipse class="leaf" style="animation-delay:-${(r()*8).toFixed(1)}s" cx="${(r()*1920).toFixed(0)}" cy="0" rx="10" ry="5" fill="${cols[i%5]}"/>`;
+    return [
+      L(`<defs><linearGradient id="aaSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#061532"/><stop offset=".55" stop-color="#1d3f73"/><stop offset="1" stop-color="#f3b73f"/></linearGradient></defs>
+         <rect width="1920" height="1080" fill="url(#aaSky)"/><circle cx="1480" cy="690" r="120" fill="#ffd66b" opacity=".9"/>
+         <path d="M0 760 Q300 690 600 740 T1200 720 T1920 750 V1080 H0Z" fill="#0f2b52"/>`),
+      L(`<g fill="#00274C">${bldgs.map(([x,y,w,h]) => `<rect x="${x}" y="${y}" width="${w}" height="${h}"/>`).join('')}
+         <rect x="640" y="500" width="84" height="320"/><polygon points="640,500 682,440 724,500"/><rect x="0" y="800" width="1920" height="280"/></g>
+         ${win}<circle cx="682" cy="548" r="22" fill="#FFCB05"/><line x1="682" y1="548" x2="682" y2="534" stroke="#00274C" stroke-width="4"/><line x1="682" y1="548" x2="692" y2="552" stroke="#00274C" stroke-width="4"/>`),
+      L(`<rect x="0" y="900" width="1920" height="180" fill="#1d3a2a"/><path d="M0 1000 Q960 940 1920 1000 V1080 H0Z" fill="#6b6b6b"/>
+         ${tree(150, 960, 430)}${tree(1780, 980, 470)}${tree(560, 990, 300)}${tree(1380, 985, 320)}${leaves}`),
+    ];
+  },
+
+  reactor() {
+    const r = rng(23);
+    const gauge = (cx, cy, rad, val, cls = '') => {
+      let t = '';
+      for (let k = 0; k <= 8; k++) t += `<line x1="${cx}" y1="${cy-rad+8}" x2="${cx}" y2="${cy-rad+22}" stroke="#8fa0b0" stroke-width="4" transform="rotate(${-120+k*30} ${cx} ${cy})"/>`;
+      return `<g class="${cls}"><circle cx="${cx}" cy="${cy}" r="${rad}" fill="#0b0f14" stroke="#4a5866" stroke-width="6"/>${t}
+        <path d="M${cx-rad*.6} ${cy+rad*.45} A${rad*.75} ${rad*.75} 0 0 1 ${cx+rad*.6} ${cy+rad*.45}" fill="none" stroke="#f5a623" stroke-width="5" opacity=".5"/>
+        <line x1="${cx}" y1="${cy}" x2="${cx}" y2="${cy-rad*.78}" stroke="#f5a623" stroke-width="6" stroke-linecap="round" transform="rotate(${-120+val*240} ${cx} ${cy})"/><circle cx="${cx}" cy="${cy}" r="9" fill="#f5a623"/></g>`;
+    };
+    let lamps = '';
+    for (let i = 0; i < 14; i++) lamps += `<circle class="${r()<.35?'bl':''}" cx="${140+i*46}" cy="740" r="12" fill="${r()<.7?'#f5a623':'#8cff5a'}" style="animation-delay:-${(r()*2).toFixed(1)}s"/>`;
+    let grid = '';
+    for (let x = 0; x < 1920; x += 120) grid += `<line x1="${x}" y1="0" x2="${x}" y2="1080" stroke="#2a3540" stroke-width="2"/>`;
+    for (let y = 0; y < 1080; y += 120) grid += `<line x1="0" y1="${y}" x2="1920" y2="${y}" stroke="#2a3540" stroke-width="2"/>`;
+    let ripples = '';
+    for (let i = 0; i < 9; i++) ripples += `<line x1="${1290+r()*80}" y1="${500+i*20}" x2="${1600+r()*80}" y2="${500+i*20}" stroke="#7fb3d0" stroke-width="3" opacity=".45"/>`;
+    let bolts = '';
+    for (let k = 0; k < 10; k++) { const a = k/10*Math.PI*2; bolts += `<circle cx="${(1480+Math.cos(a)*226).toFixed(0)}" cy="${(470+Math.sin(a)*226).toFixed(0)}" r="8" fill="#8c98a4"/>`; }
+    return [
+      L(`<defs><linearGradient id="rxSteel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0d1117"/><stop offset="1" stop-color="#1f2731"/></linearGradient></defs>
+         <rect width="1920" height="1080" fill="url(#rxSteel)"/><g opacity=".6">${grid}</g>
+         <rect x="0" y="70" width="1920" height="36" rx="18" fill="#3a4653"/><rect x="0" y="130" width="1920" height="22" rx="11" fill="#2e3945"/>
+         <rect x="300" y="60" width="26" height="56" rx="4" fill="#556474"/><rect x="900" y="60" width="26" height="56" rx="4" fill="#556474"/><rect x="1500" y="60" width="26" height="56" rx="4" fill="#556474"/>
+         <rect x="60" y="70" width="34" height="500" rx="17" fill="#3a4653"/>`),
+      L(`<defs><clipPath id="rxPort"><circle cx="1480" cy="470" r="215"/></clipPath><linearGradient id="rxDawn" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a2a5a"/><stop offset=".55" stop-color="#f28c6b"/><stop offset="1" stop-color="#ffd27a"/></linearGradient></defs>
+         <rect x="90" y="300" width="760" height="520" rx="18" fill="#1a222b" stroke="#3a4653" stroke-width="6"/>
+         ${gauge(230, 470, 110, .62)}${gauge(470, 470, 110, .35)}${gauge(710, 470, 110, .8)}
+         <rect x="130" y="640" width="680" height="50" rx="8" fill="#0b0f14"/><rect x="140" y="650" width="380" height="30" rx="4" fill="#f5a623" opacity=".8"/>
+         ${lamps}
+         <g clip-path="url(#rxPort)"><rect x="1265" y="255" width="430" height="430" fill="url(#rxDawn)"/><circle cx="1480" cy="478" r="46" fill="#fff1b8"/>
+           <path d="M1265 470 Q1340 420 1420 465 T1600 455 T1700 470 V495 H1265Z" fill="#26335a"/>
+           <rect x="1265" y="490" width="430" height="200" fill="#1f4d6b"/>${ripples}
+           <rect x="1400" y="520" width="150" height="14" rx="7" fill="#101c2a"/><rect x="1455" y="506" width="26" height="18" rx="3" fill="#101c2a"/>
+           <line x1="1330" y1="490" x2="1322" y2="430" stroke="#1a1f33" stroke-width="6"/><path d="M1322 430 q-30 -20 -50 0 M1322 430 q30 -20 50 0 M1322 430 q-10 -30 -40 -30 M1322 430 q10 -30 40 -30" stroke="#1a1f33" stroke-width="6" fill="none" stroke-linecap="round"/>
+           <line x1="1640" y1="490" x2="1650" y2="440" stroke="#1a1f33" stroke-width="6"/><path d="M1650 440 q-30 -20 -50 0 M1650 440 q30 -20 50 0 M1650 440 q-10 -30 -40 -30 M1650 440 q10 -30 40 -30" stroke="#1a1f33" stroke-width="6" fill="none" stroke-linecap="round"/></g>
+         <circle cx="1480" cy="470" r="226" fill="none" stroke="#5a6773" stroke-width="28"/>${bolts}`),
+      L(`<rect x="0" y="890" width="1920" height="190" fill="#151b22"/><rect x="0" y="880" width="1920" height="16" fill="#3a4653"/>
+         <rect x="300" y="930" width="120" height="60" rx="8" fill="#0b0f14"/><rect x="330" y="920" width="20" height="50" rx="6" fill="#c9302c"/>
+         <rect x="520" y="930" width="120" height="60" rx="8" fill="#0b0f14"/><rect x="580" y="920" width="20" height="50" rx="6" fill="#8fa0b0"/>
+         <circle cx="1300" cy="960" r="34" fill="#0b0f14" stroke="#4a5866" stroke-width="6"/><circle cx="1300" cy="960" r="10" fill="#f5a623"/>
+         <circle cx="1420" cy="960" r="34" fill="#0b0f14" stroke="#4a5866" stroke-width="6"/><circle cx="1420" cy="960" r="10" fill="#8cff5a"/>`),
+    ];
+  },
+
+  clemson() {
+    const r = rng(37);
+    let stars = '';
+    for (let i = 0; i < 60; i++) stars += `<circle class="star" style="animation-delay:-${(r()*4).toFixed(1)}s" cx="${(r()*1920).toFixed(0)}" cy="${(r()*380).toFixed(0)}" r="${(1+r()*2).toFixed(1)}" fill="#fff"/>`;
+    let cols = '', win = '';
+    for (let i = 0; i < 7; i++) { const x = 600 + i*115; cols += `<rect x="${x}" y="600" width="38" height="220" fill="#4b2a70"/>`; if (i < 6) win += `<rect x="${x+58}" y="650" width="30" height="50" fill="#ffb347" opacity=".85"/>`; }
+    const oak = (x, mirror) => {
+      const m = mirror ? -1 : 1;
+      let moss = '';
+      for (let i = 0; i < 16; i++) { const mx = x + m*(40 + r()*420), my = 330 + r()*160; moss += `<line x1="${mx.toFixed(0)}" y1="${my.toFixed(0)}" x2="${(mx+m*6).toFixed(0)}" y2="${(my+70+r()*110).toFixed(0)}" stroke="#4c3a5c" stroke-width="4" opacity=".75" stroke-linecap="round"/>`; }
+      return `<rect x="${x-32}" y="520" width="64" height="560" fill="#170a24"/><path d="M${x} 560 q${m*80} -60 ${m*200} -140" stroke="#170a24" stroke-width="40" fill="none" stroke-linecap="round"/>
+        <ellipse cx="${x+m*140}" cy="420" rx="360" ry="170" fill="#221338"/><ellipse cx="${x+m*40}" cy="330" rx="260" ry="140" fill="#1b0f2e"/>${moss}`;
+    };
+    let ff = '';
+    for (let i = 0; i < 26; i++) ff += `<circle class="ff" style="animation-delay:-${(r()*2.6).toFixed(1)}s" cx="${(200+r()*1520).toFixed(0)}" cy="${(600+r()*380).toFixed(0)}" r="5" fill="#ffe680"/>`;
+    return [
+      L(`<defs><linearGradient id="clSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1a0c33"/><stop offset=".45" stop-color="#522D80"/><stop offset=".8" stop-color="#F56600"/><stop offset="1" stop-color="#ffb347"/></linearGradient></defs>
+         <rect width="1920" height="1080" fill="url(#clSky)"/>${stars}<circle cx="700" cy="880" r="150" fill="#ffcf7a" opacity=".55"/>`),
+      L(`<rect x="0" y="820" width="1920" height="260" fill="#1e0f36"/><polygon points="560,600 960,500 1360,600" fill="#3a1f5c"/><rect x="560" y="600" width="800" height="220" fill="#3a1f5c"/>
+         <rect x="900" y="430" width="120" height="180" fill="#3a1f5c"/><path d="M930 500 a30 30 0 0 1 60 0 v60 h-60z" fill="#ffb347" opacity=".9"/><circle cx="960" cy="530" r="10" fill="#3a1f5c"/>
+         ${cols}${win}<rect x="560" y="820" width="800" height="16" fill="#2a1244"/>`),
+      L(`${oak(180, false)}${oak(1740, true)}${ff}<rect x="0" y="1010" width="1920" height="70" fill="#120820"/>`),
+    ];
+  },
+
+  desert() {
+    const r = rng(41);
+    let lights = '';
+    for (let i = 0; i < 260; i++) lights += `<circle class="tw" style="animation-delay:-${(r()*3).toFixed(1)}s" cx="${(r()*1920).toFixed(0)}" cy="${(706+r()*60).toFixed(0)}" r="${(1.5+r()*1.8).toFixed(1)}" fill="${r()<.8?'#ffe3a3':'#ffb37a'}"/>`;
+    const saguaro = (x, base, h, w, fill) => `<g fill="none" stroke="${fill}" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="${x}" y1="${base}" x2="${x}" y2="${base-h}" stroke-width="${w}"/>
+      <path d="M${x-w*.4} ${base-h*.55} h-${w*1.3} v-${h*.3}" stroke-width="${w*.7}"/>
+      <path d="M${x+w*.4} ${base-h*.42} h${w*1.2} v-${h*.36}" stroke-width="${w*.7}"/></g>`;
+    return [
+      L(`<defs><linearGradient id="dsSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b1440"/><stop offset=".35" stop-color="#7a2f52"/><stop offset=".62" stop-color="#f46b3b"/><stop offset=".72" stop-color="#f9c46b"/><stop offset="1" stop-color="#f9c46b"/></linearGradient></defs>
+         <rect width="1920" height="1080" fill="url(#dsSky)"/><circle cx="1300" cy="640" r="150" fill="#ffe08a" opacity=".35"/><circle cx="1300" cy="640" r="95" fill="#fff1b8"/>
+         <polygon points="0,640 120,600 240,625 330,555 420,590 520,535 600,575 700,525 780,560 880,505 960,545 1060,495 1140,540 1240,500 1320,545 1420,515 1500,555 1600,510 1700,550 1800,528 1920,560 1920,720 0,720" fill="#4a2247"/>`),
+      L(`<rect x="0" y="698" width="1920" height="80" fill="#2b1631"/>${lights}
+         <path d="M0 790 C200 720 380 700 560 745 S900 690 1100 735 S1500 700 1700 755 S1850 735 1920 765 V1080 H0Z" fill="#7b3222"/>
+         <path d="M0 830 C260 790 420 800 640 830 S1000 790 1300 830 S1700 800 1920 840 V1080 H0Z" fill="#5e2418"/>`),
+      L(`<path d="M0 1080 V960 C120 900 240 940 360 920 S600 990 760 960 S1000 1000 1200 970 S1600 1010 1920 950 V1080Z" fill="#3a1a12"/>
+         ${saguaro(260, 1000, 460, 64, '#24140f')}${saguaro(1660, 1030, 540, 78, '#1d100c')}${saguaro(1480, 990, 260, 40, '#2a170f')}${saguaro(80, 1040, 300, 44, '#2a170f')}`),
+    ];
+  },
+
+  friday() {
+    const r = rng(53);
+    let bulbs = '';
+    const q = (t, p0, p1, p2) => (1-t)*(1-t)*p0 + 2*(1-t)*t*p1 + t*t*p2;
+    for (let seg = 0; seg < 2; seg++) for (let i = 0; i <= 12; i++) { const t = i/12; const x = q(t, seg*960, seg*960+480, seg*960+960), y = q(t, 190, 300, 190); bulbs += `<circle class="tw" style="animation-delay:-${(r()*3).toFixed(1)}s" cx="${x.toFixed(0)}" cy="${(y+14).toFixed(0)}" r="9" fill="#ffd98a"/><circle cx="${x.toFixed(0)}" cy="${(y+14).toFixed(0)}" r="22" fill="#ffd98a" opacity=".18"/>`; }
+    let bricks = '';
+    for (let y = 440; y < 1080; y += 40) bricks += `<line x1="0" y1="${y}" x2="1920" y2="${y}" stroke="#2c2224" stroke-width="3"/>`;
+    let yards = '';
+    for (let i = 1; i < 9; i++) yards += `<line x1="${1400+i*44}" y1="358" x2="${1400+i*44}" y2="530" stroke="#fff" stroke-width="2" opacity=".6"/>`;
+    let lot = '';
+    for (let i = 0; i < 12; i++) { const x = 60 + i*165; lot += `<rect x="${x}" y="690" width="70" height="26" rx="8" fill="#1c1218"/><polygon points="${x+80},716 ${x+110},680 ${x+140},716" fill="#221620"/>`; }
+    return [
+      L(`<defs><linearGradient id="fnSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#08060c"/><stop offset="1" stop-color="#2a1420"/></linearGradient><filter id="fnBlur"><feGaussianBlur stdDeviation="30"/></filter></defs>
+         <rect width="1920" height="1080" fill="url(#fnSky)"/><ellipse cx="960" cy="720" rx="1000" ry="150" fill="#ff9a3c" opacity=".3" filter="url(#fnBlur)"/>
+         <rect x="296" y="380" width="8" height="340" fill="#1a1418"/><rect x="256" y="360" width="88" height="22" fill="#fff3c4"/><circle cx="300" cy="372" r="70" fill="#fff3c4" opacity=".22"/>
+         <rect x="1616" y="380" width="8" height="340" fill="#1a1418"/><rect x="1576" y="360" width="88" height="22" fill="#fff3c4"/><circle cx="1620" cy="372" r="70" fill="#fff3c4" opacity=".22"/>${lot}`),
+      L(`<rect x="0" y="420" width="1920" height="660" fill="#241c1e"/>${bricks}
+         <rect x="1380" y="310" width="440" height="260" rx="10" fill="#0d0d0d" stroke="#3a3a3a" stroke-width="8"/><rect x="1400" y="330" width="400" height="200" fill="#2f7d32"/>
+         <rect x="1400" y="330" width="44" height="200" fill="#97233F"/><rect x="1756" y="330" width="44" height="200" fill="#97233F"/>${yards}
+         <rect x="1400" y="330" width="400" height="26" fill="#111"/><rect x="1410" y="335" width="40" height="16" fill="#97233F"/><rect x="1460" y="335" width="40" height="16" fill="#444"/>
+         <path d="M0 190 Q480 300 960 190 T1920 190" stroke="#3d3020" stroke-width="4" fill="none"/>${bulbs}`),
+      L(`<rect x="0" y="850" width="1920" height="230" fill="#3d2417"/><rect x="0" y="838" width="1920" height="26" fill="#6b4028"/>
+         <rect x="480" y="760" width="44" height="78" rx="6" fill="#e0a030"/><rect x="480" y="752" width="44" height="18" rx="4" fill="#fff8e6"/>
+         <rect x="620" y="770" width="44" height="68" rx="6" fill="#e0a030"/><rect x="620" y="762" width="44" height="18" rx="4" fill="#fff8e6"/>
+         <rect x="1000" y="700" width="240" height="110" rx="14" fill="#2b2b2b"/><rect x="1000" y="680" width="240" height="30" rx="12" fill="#3a3a3a"/><rect x="1020" y="810" width="14" height="60" fill="#2b2b2b"/><rect x="1206" y="810" width="14" height="60" fill="#2b2b2b"/>
+         <ellipse class="smoke" style="animation-delay:0s" cx="1080" cy="670" rx="26" ry="16" fill="#cfcfcf"/><ellipse class="smoke" style="animation-delay:-1s" cx="1130" cy="660" rx="30" ry="18" fill="#cfcfcf"/><ellipse class="smoke" style="animation-delay:-2s" cx="1180" cy="670" rx="24" ry="14" fill="#cfcfcf"/>
+         <circle cx="1400" cy="880" r="28" fill="#5a3a26"/><rect x="1394" y="900" width="12" height="80" fill="#3a2417"/><circle cx="1560" cy="880" r="28" fill="#5a3a26"/><rect x="1554" y="900" width="12" height="80" fill="#3a2417"/>`),
+    ];
+  },
+
+  summit() {
+    const r = rng(67);
+    let stars = '';
+    for (let i = 0; i < 110; i++) stars += `<circle class="star" style="animation-delay:-${(r()*4).toFixed(1)}s" cx="${(r()*1920).toFixed(0)}" cy="${(r()*560).toFixed(0)}" r="${(1+r()*2.2).toFixed(1)}" fill="#fff"/>`;
+    return [
+      L(`<defs><linearGradient id="smNight" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#050a18"/><stop offset="1" stop-color="#1b2a4a"/></linearGradient>
+         <linearGradient id="smDawn" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5b7fb8"/><stop offset=".5" stop-color="#f7b267"/><stop offset=".78" stop-color="#ffd98a"/><stop offset="1" stop-color="#ffe9b8"/></linearGradient></defs>
+         <g class="summit-sky"><rect width="1920" height="1080" fill="url(#smNight)"/><g class="stars">${stars}</g><rect class="dawn" width="1920" height="1080" fill="url(#smDawn)"/><circle class="dawn" cx="1250" cy="700" r="90" fill="#fff4cf"/></g>`),
+      L(`<path d="M0 760 Q240 700 480 740 T960 720 T1440 745 T1920 720 V1080 H0Z" fill="#24304f" opacity=".95"/>
+         <path d="M0 840 Q300 780 600 820 T1200 800 T1920 830 V1080 H0Z" fill="#1a2440"/>`),
+      L(`<path d="M0 1080 V980 Q300 900 700 940 Q900 700 1000 690 Q1100 700 1300 930 Q1700 900 1920 990 V1080Z" fill="#2a2626"/>`),
+    ];
+  },
+};
+
+function sceneHTML(name, mode = '') {                 /* mode: '' (full), 'dim' (behind text), 'soft' (climb) */
+  const layers = SCENES[name]();
+  const depth = [0.25, 0.55, 1];
+  return `<div class="scene ${mode}">${layers.map((l, i) => `<div class="layer" data-depth="${depth[i]}">${l}</div>`).join('')}</div>`;
+}
+function polaroid(p, rot, extra = '') {
+  if (!p) return '';
+  return `<figure class="polaroid ${extra}" style="--rot:${rot}deg"><img src="${p.src}" alt=""><figcaption>${p.caption || ''}</figcaption></figure>`;
+}
+
+/* ==================================================================
+   4. MINI-INTERACTIONS — build(), init(), step()
+   Each step() returns { label, note, done } for the controller.
+   ================================================================== */
+const MINI = {
+  /* ---- Chapter 1: Fill the Big House ---- */
+  bighouse: {
+    build() {
+      const cx = 600, cy = 360, rxO = 560, ryO = 300, rxI = 300, ryI = 140, r = rng(5);
+      let secs = '', fans = '';
+      for (let s = 0; s < 8; s++) {
+        const a0 = s/8*Math.PI*2, a1 = (s+1)/8*Math.PI*2, pts = [];
+        for (let k = 0; k <= 6; k++) { const a = a0 + (a1-a0)*k/6; pts.push(`${(cx+Math.cos(a)*rxO).toFixed(0)},${(cy+Math.sin(a)*ryO).toFixed(0)}`); }
+        for (let k = 6; k >= 0; k--) { const a = a0 + (a1-a0)*k/6; pts.push(`${(cx+Math.cos(a)*rxI).toFixed(0)},${(cy+Math.sin(a)*ryI).toFixed(0)}`); }
+        secs += `<polygon class="section" data-s="${s}" points="${pts.join(' ')}"/>`;
+        let f = '';
+        for (let i = 0; i < 46; i++) { const a = a0 + (a1-a0)*r(), t = .12 + r()*.76; f += `<circle class="fan" cx="${(cx+Math.cos(a)*(rxI+t*(rxO-rxI))).toFixed(0)}" cy="${(cy+Math.sin(a)*(ryI+t*(ryO-ryI))).toFixed(0)}" r="5" fill="${r()<.6?'#FFCB05':'#e8eefc'}" style="animation-delay:${(r()*.2).toFixed(2)}s"/>`; }
+        fans += `<g class="fans" data-s="${s}">${f}</g>`;
+      }
+      let yards = '';
+      for (let i = 1; i < 10; i++) yards += `<line x1="${cx-rxI*.8+i*(rxI*1.6/10)}" y1="${cy-ryI*.55}" x2="${cx-rxI*.8+i*(rxI*1.6/10)}" y2="${cy+ryI*.55}" stroke="#fff" stroke-width="2" opacity=".6"/>`;
+      return `<svg class="bighouse" viewBox="0 0 1200 720"><ellipse cx="${cx}" cy="${cy+10}" rx="${rxO+16}" ry="${ryO+16}" fill="#0b1a2e"/>${secs}
+        <ellipse cx="${cx}" cy="${cy}" rx="${rxI}" ry="${ryI}" fill="#2f7d32" stroke="#fff" stroke-width="3"/>${yards}<rect x="${cx-rxI*.8}" y="${cy-ryI*.55}" width="${rxI*1.6}" height="${ryI*1.1}" fill="none" stroke="#fff" stroke-width="3"/>
+        ${fans}<text class="roar-text" x="600" y="400">ROAR!</text></svg>`;
+    },
+    init(el, s) { s.n = 0; },
+    step(el, s) {
+      const T = MINI_TEXT.bighouse;
+      const svg = el.querySelector('.bighouse');
+      svg.querySelector(`.section[data-s="${s.n}"]`).classList.add('full');
+      svg.querySelectorAll(`.fans[data-s="${s.n}"] .fan`).forEach(f => f.classList.add('show'));
+      Sound.blip();
+      const note = T.notes[s.n];
+      const label = T.labels[Math.min(s.n+1, T.labels.length-1)];
+      s.n++;
+      if (s.n >= 8) { svg.classList.add('roar'); svg.querySelector('.roar-text').classList.add('show'); Sound.cheer(); Confetti.burst(160); return { note:T.done, done:true }; }
+      return { note, label };
+    },
+  },
+
+  /* ---- Chapter 2: Reactor startup sequence ---- */
+  reactor: {
+    build() {
+      const T = MINI_TEXT.reactor;
+      let ticks = '';
+      for (let k = 0; k <= 12; k++) ticks += `<line x1="200" y1="46" x2="200" y2="${k%3===0?70:60}" stroke="#8fa0b0" stroke-width="5" transform="rotate(${-120+k*20} 200 200)"/>`;
+      return `<div class="reactor">
+        <div class="checklist">${T.steps.map((t, i) => `<div class="step" data-i="${i}"><span class="idx">${i+1}</span><span class="switch"></span><span class="lbl">${t}</span><span class="lamp" style="margin-left:auto"></span></div>`).join('')}</div>
+        <div class="gaugebox"><svg viewBox="0 0 400 300"><path d="M52 290 A160 160 0 1 1 348 290" fill="none" stroke="#0b0f14" stroke-width="44"/><path d="M52 290 A160 160 0 1 1 348 290" fill="none" stroke="#3a4653" stroke-width="30"/>
+          <path d="M270 62 A160 160 0 0 1 348 290" fill="none" stroke="#f5a623" stroke-width="30" opacity=".85"/>${ticks}
+          <line class="needle" x1="200" y1="200" x2="200" y2="58" stroke="#fff" stroke-width="8" stroke-linecap="round"/><circle cx="200" cy="200" r="16" fill="#f5a623"/>
+          <text x="200" y="262" text-anchor="middle" font-size="26" font-weight="800" fill="#8fa0b0">REACTOR POWER</text></svg>
+          <div class="readout">0%</div></div>
+        <div class="banner">AHEAD, FULL.</div></div>`;
+    },
+    init(el, s) { s.n = 0; },
+    step(el, s) {
+      const T = MINI_TEXT.reactor;
+      const i = s.n;
+      el.querySelector(`.step[data-i="${i}"]`).classList.add('on');
+      const pct = (i+1) * 20;
+      el.querySelector('.needle').style.transform = `rotate(${-120 + pct*2.4}deg)`;
+      el.querySelector('.readout').textContent = pct + '%';
+      Sound.blip();
+      s.n++;
+      if (s.n >= T.steps.length) { el.querySelector('.banner').classList.add('show'); Sound.fanfare(); return { note:T.done, done:true }; }
+      return { note:T.notes[i], label:T.labels[i] };
+    },
+  },
+
+  /* ---- Chapter 3: Build the org chart ---- */
+  orgchart: {
+    build() {
+      const T = MINI_TEXT.orgchart;
+      const boxes = T.boxes.map((b, i) => `<div class="obox ${b.cls||''}" data-i="${i}" style="left:${b.x}%;top:${b.y}%"><div class="t">${b.t}</div><div class="s">${b.s}</div></div>`).join('');
+      const lines = T.boxes.slice(1).map((b, i) => `<line data-i="${i+1}" class="${b.cls==='dotted'?'dotted':''}" x1="50%" y1="${b.cls==='dotted'?'14%':'22%'}" x2="${b.x}%" y2="${b.cls==='dotted'?'20%':'60%'}"/>`).join('');
+      return `<div class="org"><svg>${lines}</svg>${boxes}</div>`;
+    },
+    init(el, s) { s.n = 0; },
+    step(el, s) {
+      const T = MINI_TEXT.orgchart;
+      const i = s.n;
+      el.querySelector(`.obox[data-i="${i}"]`).classList.add('show');
+      const line = el.querySelector(`line[data-i="${i}"]`); if (line) line.classList.add('show');
+      Sound.blip();
+      s.n++;
+      if (s.n >= T.boxes.length) { Sound.chime(); return { note:T.done, done:true }; }
+      return { note:T.notes[i], label:T.labels[i] };
+    },
+  },
+
+  /* ---- Chapter 4: Climb (with the sneeze beat and the photo reveal) ---- */
+  climb: {
+    pts: [[140,640],[440,600],[260,520],[560,470],[400,400],[700,340],[540,280],[780,250],[700,150]],
+    build() {
+      const P = this.pts;
+      let segs = '';
+      for (let i = 1; i < P.length; i++) segs += `<line class="trailseg" data-i="${i}" x1="${P[i-1][0]}" y1="${P[i-1][1]}" x2="${P[i][0]}" y2="${P[i][1]}"/>`;
+      let flowers = '';
+      for (let i = 0; i < 6; i++) flowers += `<circle cx="${-9+(i%3)*9}" cy="${-8+Math.floor(i/3)*12}" r="3" fill="${i%2?'#ffd166':'#6ad4c8'}"/>`;
+      return `<div class="climb"><svg viewBox="0 0 1200 700">
+        <polygon points="0,700 700,120 1200,700" fill="#8f3d2a"/>
+        <polygon points="0,700 700,120 740,170 640,430 500,560 360,640 260,700" fill="#a7472f"/>
+        <polygon points="672,152 700,120 728,152 736,184 664,184" fill="#d9b48c"/>
+        ${segs}
+        <g class="dust" transform="translate(400 400)"><circle cx="-30" cy="0" r="18" fill="#e6c9a0"/><circle cx="10" cy="-14" r="24" fill="#e6c9a0"/><circle cx="40" cy="4" r="16" fill="#e6c9a0"/></g>
+        <line x1="700" y1="120" x2="700" y2="62" stroke="#fff8e6" stroke-width="5"/><polygon points="700,62 748,78 700,94" fill="#ffd98a"/>
+        <g id="hiker" style="transform:translate(${P[0][0]}px, ${P[0][1]}px)"><g transform="translate(0,-54) scale(1.7)">
+          <ellipse cx="0" cy="36" rx="18" ry="5" fill="rgba(0,0,0,.35)"/>
+          <rect x="-10" y="10" width="8" height="24" rx="3" fill="#c9a27e"/><rect x="2" y="10" width="8" height="24" rx="3" fill="#c9a27e"/>
+          <rect x="-13" y="34" width="11" height="6" rx="2" fill="#333"/><rect x="2" y="34" width="11" height="6" rx="2" fill="#333"/>
+          <rect x="-15" y="-16" width="30" height="30" rx="7" fill="#e0483c"/>${flowers}
+          <rect x="10" y="-14" width="11" height="24" rx="3" fill="#2e6f9e"/>
+          <circle cx="0" cy="-28" r="12" fill="#e7b48c"/><path d="M-14 -32 h28 l-5 -7 h-18 z" fill="#3a3a3a"/><rect x="-16" y="-33" width="32" height="4" rx="2" fill="#3a3a3a"/>
+        </g></g></svg>
+        <div class="reveal"><div class="frame"><img src="chuck.jpg" alt=""></div><div class="cap">${MINI_TEXT.climb.reveal}</div></div></div>`;
+    },
+    init(el, s) { s.n = 0; s.stage = 'climb'; },
+    step(el, s) {
+      const T = MINI_TEXT.climb, P = this.pts;
+      if (s.stage === 'sneeze') {           /* the HORSE SHIT button was pressed */
+        s.stage = 'bless';
+        el.querySelector('.dust').classList.remove('show');
+        Sound.chime();
+        return { note:T.notes[4], label:T.blessButton };
+      }
+      if (s.stage === 'bless') s.stage = 'climb';
+      s.n++;
+      const p = P[s.n];
+      el.querySelector('#hiker').style.transform = `translate(${p[0]}px, ${p[1]}px)`;
+      el.querySelector(`.trailseg[data-i="${s.n}"]`).classList.add('done');
+      Sound.blip();
+      if (s.n === 4) {                       /* the sneeze beat, midway up */
+        s.stage = 'sneeze';
+        const d = el.querySelector('.dust'); d.classList.add('show');
+        return { note:T.notes[3], label:T.sneezeButton, bigNote:true };
+      }
+      if (s.n >= P.length-1) {               /* summit: reveal the photo */
+        const c = el.querySelector('.climb'); c.classList.add('revealed'); c.querySelector('.reveal').classList.add('show');
+        Sound.fanfare();
+        return { note:T.notes[8], done:true };
+      }
+      const noteIndex = s.n <= 3 ? s.n-1 : s.n;
+      return { note:T.notes[noteIndex], label:T.climbButton };
+    },
+  },
+
+  /* ---- Chapter 5: Fourth and goal ---- */
+  fourthgoal: {
+    build() {
+      let yards = '';
+      for (let i = 1; i < 10; i++) yards += `<line x1="${i*100}" y1="60" x2="${i*100}" y2="540" stroke="#fff" stroke-width="3" opacity=".6"/>`;
+      return `<svg class="field" viewBox="0 0 1200 600"><rect width="1200" height="600" fill="#2f7d32"/><rect x="0" y="60" width="1200" height="480" fill="none" stroke="#fff" stroke-width="6"/>
+        <rect x="1000" y="60" width="200" height="480" fill="#97233F"/>${yards}
+        <circle class="player" id="center" cx="520" cy="300" r="22" fill="#fff8e6" stroke="#97233F" stroke-width="6"/>
+        <circle class="player" id="qb" cx="440" cy="300" r="22" fill="#fff8e6" stroke="#97233F" stroke-width="6"/>
+        <circle class="player" id="wr" cx="700" cy="180" r="22" fill="#fff8e6" stroke="#97233F" stroke-width="6"/>
+        <circle class="player" cx="600" cy="300" r="22" fill="#e8eefc" stroke="#2b2b2b" stroke-width="6"/><circle class="player" cx="640" cy="220" r="22" fill="#e8eefc" stroke="#2b2b2b" stroke-width="6"/><circle class="player" cx="640" cy="380" r="22" fill="#e8eefc" stroke="#2b2b2b" stroke-width="6"/>
+        <ellipse id="ball" cx="520" cy="300" rx="14" ry="9" fill="#7a3b12" stroke="#fff" stroke-width="2"/>
+        <text class="td-text" x="600" y="330">TOUCHDOWN</text></svg>`;
+    },
+    init(el, s) { s.n = 0; },
+    step(el, s) {
+      const T = MINI_TEXT.fourthgoal;
+      const ball = el.querySelector('#ball');
+      const i = s.n; s.n++;
+      if (i === 0) { animateBall(ball, [520,300], [440,300], 0, 400); Sound.blip(); return { note:T.notes[0], label:T.labels[0] }; }
+      if (i === 1) {
+        el.querySelector('#wr').style.transform = 'translate(380px, 20px)';
+        animateBall(ball, [440,300], [1080,200], 180, 900); Sound.blip();
+        return { note:T.notes[1], label:T.labels[1] };
+      }
+      el.querySelector('#wr').setAttribute('r', '30');
+      el.querySelector('.td-text').classList.add('show');
+      Sound.cheer(); Confetti.burst(140);
+      return { note:T.done, done:true };
+    },
+  },
+
+  /* ---- Chapter 5 bonus: Tailgate grill master ---- */
+  grill: {
+    angles: [-80, -52, -34, 0],
+    build() {
+      const T = MINI_TEXT.grill;
+      const arc = (a0, a1, col) => { const p = a => [300+Math.cos((a-90)*Math.PI/180)*230, 300+Math.sin((a-90)*Math.PI/180)*230]; const [x0,y0] = p(a0), [x1,y1] = p(a1); return `<path d="M${x0} ${y0} A230 230 0 0 1 ${x1} ${y1}" fill="none" stroke="${col}" stroke-width="46" stroke-linecap="butt"/>`; };
+      return `<div class="grill"><svg viewBox="0 0 600 560">
+        ${arc(-90,-30,'#4a7fb5')}${arc(-30,30,'#4caf50')}${arc(30,90,'#c0392b')}
+        <text class="zone-label" x="110" y="150">TOO COLD</text><text class="zone-label" x="300" y="48">PERFECT</text><text class="zone-label" x="500" y="150">CHARCOAL</text>
+        <circle cx="300" cy="300" r="180" fill="#1a1a1a" stroke="#555" stroke-width="8"/>
+        <line class="gneedle" x1="300" y1="300" x2="300" y2="92" stroke="#fff" stroke-width="10" stroke-linecap="round"/><circle cx="300" cy="300" r="20" fill="#e8b04b"/>
+        <rect x="90" y="410" width="420" height="120" rx="14" fill="#2b2b2b" stroke="#555" stroke-width="6"/>
+        <g stroke="#666" stroke-width="4">${[0,1,2,3,4,5,6].map(i => `<line x1="${110+i*64}" y1="420" x2="${110+i*64}" y2="520"/>`).join('')}</g>
+        <g class="dish"><path d="M130 500 a40 40 0 0 1 80 0 z" fill="#f2c14e"/><path d="M140 500 a30 30 0 0 1 60 0 z" fill="#d94b3a"/><path d="M148 500 a22 22 0 0 1 44 0 z" fill="#7cc576"/></g>
+        <g class="dish"><path d="M240 500 a40 40 0 0 1 80 0 z" fill="#f2c14e"/><path d="M250 500 a30 30 0 0 1 60 0 z" fill="#d94b3a"/><path d="M258 500 a22 22 0 0 1 44 0 z" fill="#7cc576"/></g>
+        <g class="dish"><path d="M350 450 q40 -20 80 0 q30 30 10 60 q-50 20 -90 -5 q-20 -30 0 -55z" fill="#8b2f2f"/><line x1="360" y1="470" x2="430" y2="470" stroke="#3a1a10" stroke-width="5"/><line x1="360" y1="490" x2="430" y2="490" stroke="#3a1a10" stroke-width="5"/></g>
+        <g class="dish"><path d="M440 452 q40 -20 80 0 q30 30 10 60 q-50 20 -90 -5 q-20 -30 0 -55z" fill="#8b2f2f"/><line x1="450" y1="472" x2="520" y2="472" stroke="#3a1a10" stroke-width="5"/><line x1="450" y1="492" x2="520" y2="492" stroke="#3a1a10" stroke-width="5"/></g>
+      </svg>
+      <div class="grillside"><div class="kicker">${T.title}</div><div class="tempread">Grill: cold</div><div class="card"><p>On the grate: ${T.dishes[0]}.<br>Next to them: ${T.dishes[1]}.</p></div>${polaroid(T.photo, 3, 'sm')}</div></div>`;
+    },
+    init(el, s) { s.n = 0; },
+    step(el, s) {
+      const T = MINI_TEXT.grill;
+      const i = s.n; s.n++;
+      el.querySelector('.gneedle').style.transform = `rotate(${this.angles[s.n]}deg)`;
+      el.querySelector('.tempread').textContent = ['Grill: cold', 'Grill: warming', 'Grill: almost', 'Grill: PERFECT'][s.n];
+      Sound.blip();
+      if (s.n >= 3) { el.querySelector('.grill').classList.add('perfect'); el.querySelector('.grillside .polaroid').classList.add('show'); Sound.fanfare(); return { note:T.notes[2], done:true }; }
+      return { note:T.notes[i], label:T.labels[i] };
+    },
+  },
+};
+
+/* Ball arc for fourth-and-goal (JS-driven so it stays under 1s) */
+function animateBall(ball, from, to, arc, ms) {
+  const t0 = performance.now();
+  const frame = (now) => {
+    const t = Math.min(1, (now - t0) / ms);
+    const x = from[0] + (to[0]-from[0]) * t, y = from[1] + (to[1]-from[1]) * t - arc * 4 * t * (1-t);
+    ball.setAttribute('cx', x.toFixed(1)); ball.setAttribute('cy', y.toFixed(1));
+    if (t < 1) requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
+}
+
+/* ==================================================================
+   5. SCREEN BUILDERS — one HTML template per screen type
+   ================================================================== */
+const BUILD = {
+  title: s => `
+    <div class="scene photo-scene"><img class="kb" src="${s.photo}" alt=""><div class="shade"></div></div>
+    <div class="content center">
+      <div class="do">${s.do}</div>
+      <div class="kicker">${s.kicker}</div>
+      <h1 class="giant">${s.title}</h1>
+      <div class="sub">${s.subtitle}</div>
+      <p class="lead">${s.lead}</p>
+    </div>
+    <div class="actions"><button class="btn primary big" data-action="next">${s.button}</button></div>
+    <div class="hints">${s.hints}</div>`,
+
+  arrival: s => `
+    ${sceneHTML(CHAPTERS[s.chapter].scene)}
+    <div class="content">
+      <div class="do">Read the log entry, then press Continue.</div>
+      <div class="row">
+        <div class="card narration"><div class="kicker">${CHAPTERS[s.chapter].camp} · Chapter ${s.chapter} of 6</div><h2>${s.heading}</h2><p>${s.text}</p></div>
+        ${polaroid(s.photo, 3)}
+      </div>
+    </div>
+    <div class="actions"><button class="btn primary" data-action="next">Continue →</button></div>`,
+
+  choice: s => `
+    ${sceneHTML(CHAPTERS[s.chapter].scene, 'dim')}
+    <div class="content">
+      <div class="do">Pick one:</div>
+      <h2 class="q">${s.question}</h2>
+      <div class="opts n${s.options.length}">${s.options.map((o, i) => `<button class="btn opt" data-action="pick" data-i="${i}"><span class="num">${i+1}</span><span class="lbl">${o.label}</span></button>`).join('')}</div>
+      <div class="reaction card" hidden><div class="kicker">You picked: <span class="picked"></span></div><p class="rtext"></p></div>
+    </div>
+    <div class="actions"><button class="btn primary continue" data-action="next" hidden>Continue →</button></div>`,
+
+  trivia: s => `
+    ${sceneHTML(CHAPTERS[s.chapter].scene, 'dim')}
+    <div class="content">
+      <div class="do">Ask the room, then pick the answer:</div>
+      <div class="qwrap" style="display:contents">
+        <div class="kicker">Family trivia · Chapter ${s.chapter}</div>
+        <h2 class="q">${s.question}</h2>
+        <div class="opts n${s.options.length}">${s.options.map((o, i) => `<button class="btn opt" data-action="pick" data-i="${i}"><span class="num">${i+1}</span><span class="lbl">${o}</span></button>`).join('')}</div>
+        <div class="reaction card wrongbox" hidden><p class="rtext">${WRONG_TEXT}</p></div>
+      </div>
+      <div class="earned" hidden>
+        <div class="earned-left">${badgeHTML(s.chapter)}<div class="kicker">Badge earned</div><div class="bname">${CHAPTERS[s.chapter].badge}</div><p class="rtext">${s.reaction}</p></div>
+        ${polaroid(s.photo, -3)}
+      </div>
+    </div>
+    <div class="actions"><button class="btn primary continue" data-action="next" hidden>${s.next || 'Continue →'}</button></div>`,
+
+  mini: s => `
+    ${sceneHTML(CHAPTERS[s.chapter].scene, s.kind === 'climb' ? 'soft' : 'dim')}
+    <div class="content mini">
+      <div class="do">${MINI_TEXT[s.kind].do}</div>
+      <div class="note"></div>
+      <div class="playfield">${MINI[s.kind].build()}</div>
+    </div>
+    <div class="actions"><button class="btn primary big" data-action="step">${MINI_TEXT[s.kind].first}</button></div>`,
+
+  summit: s => `
+    ${sceneHTML('summit')}
+    <div class="content">
+      <div class="do">${MINI_TEXT.summit.do}</div>
+      <div class="kicker">${CHAPTERS[6].camp} · Chapter 6 of 6</div>
+      <h2>${s.heading}</h2>
+      <p class="lead summit-lead" style="text-align:center">${s.text}</p>
+      <div class="flagwrap"><div class="pole"></div><div class="cloth">${[1,2,3,4,5,6].map(ch => `<div class="slot"><div class="ghost"></div>${badgeHTML(ch, 'small')}</div>`).join('')}</div></div>
+    </div>
+    <div class="actions"><button class="btn primary big" data-action="raise">${s.button}</button></div>`,
+
+  messages: s => `
+    ${sceneHTML('summit', 'dim')}
+    <div class="content">
+      <div class="do">${MINI_TEXT.messages.do}</div>
+      <h2>${s.heading}</h2>
+      <div class="entries">${s.entries.map((e, i) => `<div class="entry" data-i="${i}" style="--rot:${e.rot}deg"><div class="who">Trail register · ${e.who}</div><div class="msg">${e.msg}</div><div class="sig">${e.sig}</div></div>`).join('')}</div>
+    </div>
+    <div class="actions"><button class="btn primary big" data-action="entry">${MINI_TEXT.messages.first}</button></div>`,
+
+  log: s => `
+    ${sceneHTML('summit', 'dim')}
+    <div class="content">
+      <div class="do">${MINI_TEXT.log.do}</div>
+      <div class="logwrap">
+        <div class="log card"><div class="kicker">${s.heading}</div><div style="height:.5rem"></div>${s.lines.map(l => `<p>${l}</p>`).join('')}<p class="final">${s.final}</p></div>
+        <div class="filmstrip">${s.photos.map(p => `<img src="${p}" alt="">`).join('')}</div>
+      </div>
+    </div>
+    <div class="actions"><button class="btn primary big" data-action="next">${s.button}</button></div>`,
+
+  closing: s => `
+    ${sceneHTML('summit')}
+    <div class="closing">
+      <h1>${s.title}</h1>
+      <div class="frame"><img src="${s.photo}" alt=""></div>
+      <div class="sub2">${s.sub}</div>
+    </div>
+    <a class="restart-link" data-action="restart">restart</a>`,
+};
+
+/* Per-type setup after the HTML is in the DOM */
+const INIT = {
+  mini(s, el, local) { MINI[s.kind].init(el, local); },
+  summit(s, el) { el.querySelector('.summit-sky').classList.remove('day'); },
+  messages(s, el) { el.querySelector('.summit-sky').classList.add('day', 'instant'); },
+  log(s, el) { el.querySelector('.summit-sky').classList.add('day', 'instant'); },
+  closing(s, el) { el.querySelector('.summit-sky').classList.add('day', 'instant'); Confetti.burst(260); Confetti.ambient(true); },
+};
+
+/* Per-type click actions (data-action values other than next/restart) */
+const ACT = {
+  choice(action, btn, s, el) {
+    if (action !== 'pick') return;
+    const i = +btn.dataset.i, o = s.options[i];
+    el.querySelector('.opts').hidden = true;
+    el.querySelector('.reaction .picked').textContent = '"' + o.label + '"';
+    el.querySelector('.reaction .rtext').textContent = o.reaction;
+    el.querySelector('.reaction').hidden = false;
+    el.querySelector('.do').textContent = 'Press Continue.';
+    el.querySelector('.primary').hidden = false;
+    Sound.chime(); setHi(0);
+  },
+  trivia(action, btn, s, el) {
+    if (action !== 'pick') return;
+    const i = +btn.dataset.i;
+    if (i === s.answer) {
+      el.querySelector('.qwrap').hidden = true;
+      el.querySelector('.do').textContent = 'Badge earned. Press Continue.';
+      const e = el.querySelector('.earned'); e.hidden = false; e.querySelector('.badge').classList.add('stamp');
+      el.querySelector('.primary').hidden = false;
+      earn(s.chapter); Sound.fanfare(); Confetti.burst(120); setHi(0);
+    } else {
+      btn.classList.add('wrong'); btn.disabled = true;
+      el.querySelector('.wrongbox').hidden = false;
+      Sound.wrong(); setHi(0);
+    }
+  },
+  mini(action, btn, s, el, local) {
+    if (action !== 'step') return;
+    const r = MINI[s.kind].step(el, local);
+    const note = el.querySelector('.note');
+    if (r.note !== undefined) note.textContent = r.note;
+    note.classList.toggle('big', !!r.bigNote);
+    if (r.done) { btn.textContent = 'Continue →'; btn.dataset.action = 'next'; btn.classList.add('continue'); el.querySelector('.do').textContent = 'Press Continue.'; }
+    else if (r.label) btn.textContent = r.label;
+  },
+  summit(action, btn, s, el) {
+    if (action !== 'raise') return;
+    el.querySelector('.summit-sky').classList.add('day');
+    el.querySelectorAll('.cloth .badge').forEach((b, i) => setTimeout(() => b.classList.add('land'), 150 + i*160));
+    Sound.fanfare(); earn(6);
+    el.querySelector('.summit-lead').textContent = MINI_TEXT.summit.names;
+    btn.textContent = 'Continue →'; btn.dataset.action = 'next'; btn.classList.add('continue'); btn.disabled = true;
+    setTimeout(() => { btn.disabled = false; el.querySelector('.do').textContent = MINI_TEXT.summit.afterDo; }, 1300);
+  },
+  messages(action, btn, s, el, local) {
+    if (action !== 'entry') return;
+    local.n = (local.n || 0);
+    el.querySelector(`.entry[data-i="${local.n}"]`).classList.add('show');
+    local.n++; Sound.chime();
+    if (local.n >= s.entries.length) { btn.textContent = 'Continue →'; btn.dataset.action = 'next'; btn.classList.add('continue'); el.querySelector('.do').textContent = MINI_TEXT.messages.afterDo; }
+    else btn.textContent = MINI_TEXT.messages.label;
+  },
+};
+
+/* ==================================================================
+   6. ENGINE — state machine, transitions, input, HUD
+   ================================================================== */
+const state = { i:0, hi:0, earned:new Set() };
+let lockUntil = 0;                                /* ignore input until the crossfade has finished */
+let cur = null;                                   /* { screen, el, local } */
+const stage = document.getElementById('stage');
+const hud = document.getElementById('hud');
+
+function go(i) {
+  if (i < 0 || i >= screens.length) return;
+  const old = cur ? cur.el : null;
+  state.i = i;
+  const screen = screens[i];
+  document.body.dataset.theme = screen.theme || CHAPTERS[screen.chapter].theme;
+  document.body.classList.toggle('closing', screen.type === 'closing');
+  lockUntil = performance.now() + 450;
+  const el = document.createElement('section');
+  el.className = 'screen'; el.dataset.screen = screen.id;
+  el.innerHTML = BUILD[screen.type](screen);
+  stage.appendChild(el);
+  cur = { screen, el, local:{} };
+  el.querySelectorAll('img').forEach(img => img.addEventListener('error', () => { const f = img.closest('figure, .frame, .filmstrip'); if (f) f.hidden = true; else img.hidden = true; }));
+  if (INIT[screen.type]) INIT[screen.type](screen, el, cur.local);
+  void el.offsetWidth;                            /* force layout so the fade-in transition runs */
+  el.classList.add('in');
+  if (old) { old.classList.remove('in'); old.classList.add('out'); setTimeout(() => old.remove(), 450); }
+  if (screen.type !== 'closing') Confetti.ambient(false);
+  updateHUD(screen);
+  setHi(0);
+}
+function restart() { state.earned.clear(); go(0); }
+function earn(ch) { state.earned.add(ch); updateHUD(cur.screen); }
+
+function updateHUD(screen) {
+  const hidden = screen.type === 'title' || screen.type === 'closing';
+  hud.hidden = hidden;
+  if (hidden) return;
+  const ch = screen.chapter;
+  document.getElementById('hud-chapter').textContent = `Chapter ${ch} of 6 · ${CHAPTERS[ch].name}`;
+  for (let k = 1; k <= 6; k++) {
+    const g = document.getElementById('tn' + k), node = g.querySelector('.node'), lbl = g.querySelector('.lbl');
+    const done = state.earned.has(k) || k < ch, now = k === ch && !done;
+    node.classList.toggle('done', done); node.classList.toggle('now', now);
+    lbl.classList.toggle('done', done); lbl.classList.toggle('now', now);
+    const p = document.getElementById('tp' + (k-1)); if (p) p.classList.toggle('done', k <= ch);
+  }
+}
+
+/* ---- Click handling: one delegated listener ---- */
+stage.addEventListener('click', e => {
+  const b = e.target.closest('[data-action]');
+  if (!b || b.disabled) return;
+  b.blur();                                       /* keep native focus off buttons so Enter/Space only go through our handler */
+  act(b.dataset.action, b);
+});
+function act(action, btn) {
+  if (performance.now() < lockUntil) return;
+  Sound.unlock();
+  if (action === 'next') return go(state.i + 1);
+  if (action === 'restart') return restart();
+  const h = ACT[cur.screen.type];
+  if (h) h(action, btn, cur.screen, cur.el, cur.local);
+}
+
+/* ---- Keyboard: numbers pick, arrows move, Enter/Space activate ---- */
+function optButtons() { return [...cur.el.querySelectorAll('.opt')].filter(b => !b.disabled && b.offsetParent !== null); }
+function setHi(n) {
+  const opts = optButtons();
+  cur.el.querySelectorAll('.opt.hi').forEach(b => b.classList.remove('hi'));
+  if (!opts.length) { state.hi = 0; return; }
+  state.hi = ((n % opts.length) + opts.length) % opts.length;
+  opts[state.hi].classList.add('hi');
+}
+function activate() {
+  const opts = optButtons();
+  if (opts.length) { opts[state.hi].click(); return; }
+  const p = [...cur.el.querySelectorAll('.primary')].find(b => !b.hidden && !b.disabled && b.offsetParent !== null);
+  if (p) p.click();
+}
+document.addEventListener('keydown', e => {
+  if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;   /* a held key must not race through screens */
+  const k = e.key;
+  if (k === 'f' || k === 'F') { toggleFullscreen(); return; }
+  if (k === 'r' || k === 'R') { restart(); return; }
+  if (k === 's' || k === 'S') { toggleSound(); return; }
+  if (/^[1-4]$/.test(k)) { const all = [...cur.el.querySelectorAll('.opt')]; const b = all[+k - 1]; if (b && !b.disabled && b.offsetParent !== null) b.click(); return; }
+  const cols = optButtons().length === 4 ? 2 : 1;                 /* 4 options sit in a 2x2 grid */
+  if (k === 'ArrowLeft')  { e.preventDefault(); setHi(state.hi - 1); return; }
+  if (k === 'ArrowRight') { e.preventDefault(); setHi(state.hi + 1); return; }
+  if (k === 'ArrowUp')    { e.preventDefault(); setHi(state.hi - cols); return; }
+  if (k === 'ArrowDown')  { e.preventDefault(); setHi(state.hi + cols); return; }
+  if (k === 'Enter' || k === ' ') { e.preventDefault(); activate(); }
+});
+stage.addEventListener('mouseover', e => { const b = e.target.closest('.opt'); if (!b) return; const k = optButtons().indexOf(b); if (k >= 0) setHi(k); });
+
+/* ---- Fullscreen, idle cursor, parallax ---- */
+function toggleFullscreen() {
+  if (document.fullscreenElement) document.exitFullscreen();
+  else document.documentElement.requestFullscreen().catch(() => {});
+}
+let idleTimer = null;
+function wake() { document.body.classList.remove('idle'); clearTimeout(idleTimer); idleTimer = setTimeout(() => document.body.classList.add('idle'), 3000); }
+document.addEventListener('mousemove', e => {
+  wake();
+  const dx = e.clientX / window.innerWidth - .5, dy = e.clientY / window.innerHeight - .5;
+  if (cur) cur.el.querySelectorAll('.layer').forEach(l => { const d = +l.dataset.depth; l.style.transform = `translate(${(-dx*44*d).toFixed(1)}px, ${(-dy*26*d).toFixed(1)}px)`; });
+});
+wake();
+
+/* ==================================================================
+   7. SOUND — gentle WebAudio chimes, off by default, no audio files
+   ================================================================== */
+const Sound = {
+  on:false, ctx:null,
+  unlock() { if (!this.on) return; if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); if (this.ctx.state === 'suspended') this.ctx.resume(); },
+  tone(freq, at, dur, type = 'sine', gain = .09) {
+    const c = this.ctx, o = c.createOscillator(), g = c.createGain();
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(0, at); g.gain.linearRampToValueAtTime(gain, at + .02); g.gain.exponentialRampToValueAtTime(.0001, at + dur);
+    o.connect(g).connect(c.destination); o.start(at); o.stop(at + dur + .05);
+  },
+  ready() { if (!this.on) return false; this.unlock(); return !!this.ctx; },
+  blip()    { if (!this.ready()) return; const t = this.ctx.currentTime; this.tone(660, t, .14, 'triangle', .07); },
+  chime()   { if (!this.ready()) return; const t = this.ctx.currentTime; this.tone(660, t, .35); this.tone(880, t + .12, .5); },
+  wrong()   { if (!this.ready()) return; const t = this.ctx.currentTime; this.tone(330, t, .22, 'triangle', .07); this.tone(247, t + .18, .35, 'triangle', .07); },
+  fanfare() { if (!this.ready()) return; const t = this.ctx.currentTime; [523, 659, 784, 1047].forEach((f, i) => this.tone(f, t + i*.11, .5)); },
+  cheer()   {
+    if (!this.ready()) return;
+    const c = this.ctx, n = c.sampleRate * 1.3, buf = c.createBuffer(1, n, c.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random()*2-1) * Math.pow(Math.sin(Math.PI*i/n), 1.4);
+    const src = c.createBufferSource(); src.buffer = buf;
+    const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 900; f.Q.value = .6;
+    const g = c.createGain(); g.gain.value = .12;
+    src.connect(f).connect(g).connect(c.destination); src.start();
+    this.fanfare();
+  },
+};
+const soundBtn = document.getElementById('sound');
+function toggleSound() { Sound.on = !Sound.on; soundBtn.textContent = Sound.on ? '♪ Sound: On' : '♪ Sound: Off'; if (Sound.on) { Sound.unlock(); Sound.chime(); } }
+soundBtn.addEventListener('click', () => { toggleSound(); soundBtn.blur(); });
+
+/* ==================================================================
+   8. CONFETTI — canvas overlay; bursts last 1.5s, ambient drift optional
+   ================================================================== */
+const Confetti = (() => {
+  const cv = document.getElementById('confetti'), cx = cv.getContext('2d');
+  const colors = ['#FFCB05','#F56600','#97233F','#ffd98a','#4caf50','#4a7fb5','#ffffff'];
+  let parts = [], ambientOn = false, running = false;
+  function resize() { cv.width = window.innerWidth; cv.height = window.innerHeight; }
+  window.addEventListener('resize', resize); resize();
+  function spawn(n, burst) {
+    for (let i = 0; i < n; i++) parts.push({
+      x: burst ? cv.width/2 + (Math.random()-.5)*cv.width*.5 : Math.random()*cv.width,
+      y: burst ? cv.height*.45 : -20,
+      vx: burst ? (Math.random()-.5)*14 : (Math.random()-.5)*1.2,
+      vy: burst ? -Math.random()*14 - 2 : 1 + Math.random()*1.5,
+      w: 8 + Math.random()*8, h: 5 + Math.random()*6, rot: Math.random()*6.28, vr: (Math.random()-.5)*.3,
+      col: colors[Math.floor(Math.random()*colors.length)], born: performance.now(), life: burst ? 1500 : 9000,
+    });
+  }
+  function loop(now) {
+    cx.clearRect(0, 0, cv.width, cv.height);
+    parts = parts.filter(p => now - p.born < p.life && p.y < cv.height + 30);
+    for (const p of parts) {
+      p.vy += .25; p.x += p.vx; p.y += p.vy; p.vx *= .985; p.rot += p.vr;
+      cx.save(); cx.translate(p.x, p.y); cx.rotate(p.rot); cx.fillStyle = p.col; cx.globalAlpha = Math.max(0, 1 - (now - p.born) / p.life); cx.fillRect(-p.w/2, -p.h/2, p.w, p.h); cx.restore();
+    }
+    if (ambientOn && Math.random() < .12) spawn(1, false);
+    if (parts.length || ambientOn) requestAnimationFrame(loop); else { running = false; cx.clearRect(0, 0, cv.width, cv.height); }
+  }
+  function start() { if (!running) { running = true; requestAnimationFrame(loop); } }
+  return {
+    burst(n) { spawn(n, true); start(); },
+    ambient(on) { ambientOn = on; if (on) start(); },
+  };
+})();
+
+/* ==================================================================
+   9. GO
+   ================================================================== */
+go(0);
+})();
+</script>
+</body>
+</html>
