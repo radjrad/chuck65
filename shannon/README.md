@@ -4,24 +4,23 @@ Single-file birthday game, built from the chuck65 engine. Everything lives in
 `index.html`. Live at <https://radjrad.github.io/chuck65/shannon/> once merged
 to `main`.
 
-## Photos to add
+## Photos
 
-Drop JPEGs with these exact names into this folder. A missing photo simply
-hides its frame, so the game runs fine before they arrive.
+All slots are filled. To swap one, replace the file with the same name
+(JPEG, about 1600px on the long side keeps the page fast on phones).
 
-| File | Where it shows | What to use |
-|------|----------------|-------------|
-| `shannon-title.jpg` | Title screen background (full-bleed, slow zoom) | A big, good photo of Shannon. Landscape or portrait both work. |
-| `c1-kid.jpg` | Chapter 1 arrival polaroid | Kid / Midwest / Chicago-era Shannon |
-| `c1-fair.jpg` | Chapter 1 badge screen | Anything county-fair, corn, or farm-boy energy |
-| `c1-family.jpg` | Chapter 1 badge screen | Shannon with his mom |
-| `c2-du.jpg` | Chapter 2 arrival polaroid | Penn / Delta Upsilon era |
-| `c2-crew.jpg` | Chapter 2 badge screen | The DU brothers |
-| `c2-pong.jpg` | Beer pong game side panel and Chapter 2 badge screen | Beer pong, a party, or the house |
-| `c3-band.jpg` | Chapter 3 arrival polaroid and the drum game reveal | Shannon drumming with the SF Lesbian/Gay Freedom Band |
-| `c3-wedding.jpg` | Chapter 3 badge screen | Shannon and Justin in Portugal |
-| `c3-camera.jpg` | Chapter 3 badge screen | Shannon with his camera |
-| `wedding.jpg` | Closing screen (large, framed) | The best wedding photo of the two of them |
+| File | Where it shows |
+|------|----------------|
+| `shannon-title.jpg` | Title screen background |
+| `c1-kid.jpg` | Chapter 1 arrival polaroid |
+| `c1-boat.jpg`, `c1-family.jpg`, `c1-fair.jpg` | Chapter 1 badge screen |
+| `c2-du.jpg` | Chapter 2 arrival polaroid |
+| `c2-crew.jpg`, `c2-pong.jpg`, `c2-dumplings.jpg` | Chapter 2 badge screen (`c2-pong.jpg` is also the beer pong side panel) |
+| `c3-band.jpg` | Chapter 3 arrival polaroid and the drum game reveal |
+| `c3-wedding.jpg`, `c3-camera.jpg`, `c3-svai.jpg` | Chapter 3 badge screen |
+| `wedding.jpg` | Closing screen |
+
+Captions live next to each filename in the `1. CONTENT` section of `index.html`.
 
 ## Editing the words
 
